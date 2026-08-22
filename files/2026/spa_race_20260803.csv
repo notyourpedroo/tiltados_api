@@ -1,0 +1,50 @@
+﻿Pos.,Piloto,Equipe,Grid,Paradas,Melhor tempo,Tempo,Pts.,tipo de piloto
+1,Matheus,Visa Cash App Racing Bulls,3,3,1:54.328,45:23.836,25,Pessoa
+2,Douglas,Mercedes-AMG Petronas,5,3,1:55.597,5.353,18,Pessoa
+3,Bryan,Scuderia Ferrari HP,4,3,1:56.644,10.4,15,Pessoa
+4,Paulo,Scuderia Ferrari HP,2,3,1:55.594,13.962,12,Pessoa
+5,Gabriel,Visa Cash App Racing Bulls,7,3,1:57.655,16.9,10,Pessoa
+6,Erick,Red Bull,6,2,1:57.786,17.119,8,Pessoa
+7,Yohan,Red Bull,1,3,1:56.317,33.025,6,Pessoa
+8,Mike,Mercedes-AMG Petronas,8,2,1:59.049,NC,0,Pessoa
+,,,,,,,,
+Tempo,Volta,Piloto,Equipe,Incidente,Punição,,,
+10.977,1,Tapioca Sideral,Visa Cash App Racing Bulls,Colisão com Pessoa,Aviso,,,
+12.322,1,Pessoa,Mercedes-AMG Petronas,Colisão com Brad,Aviso,,,
+12.883,1,KISE 7,Visa Cash App Racing Bulls,Colisão com Minato,Aviso,,,
+23.879,1,Minato,Red Bull,Limites da pista excedidos,Aviso,,,
+24.186,1,Pevs,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+25.383,1,Brad,Scuderia Ferrari HP,Corte de curvas,Aviso,,,
+26.141,1,Pevs,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+1:51.544,1,Pessoa,Mercedes-AMG Petronas,Limites da pista excedidos,Aviso,,,
+2:47.409,2,Brad,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+3:57.550,2,Pessoa,Red Bull,Limites da pista excedidos,Aviso,,,
+4:10.373,2,Minato,Red Bull,Excesso de velocidade no pit lane,Punição de 10 segundo(s),,,
+4:25.458,3,Pevs,Scuderia Ferrari HP,Corte de curvas,3 segundo(s),,,
+7:58.233,4,Pessoa,Mercedes-AMG Petronas,Limites da pista excedidos,Aviso,,,
+9:53.464,5,Tapioca Sideral,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+12:06.486,6,Brad,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+12:06.506,6,Brad,Scuderia Ferrari HP,Múltiplas advertências,3 segundo(s),,,
+12:42.755,7,Brad,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+12:44.029,7,Minato,Red Bull,Limites da pista excedidos,Aviso,,,
+17:26.698,9,Minato,Red Bull,Limites da pista excedidos,Aviso,,,
+17:26.704,9,Minato,Red Bull,Múltiplas advertências,3 segundo(s),,,
+19:57.453,10,Pevs,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+19:57.472,10,Pevs,Scuderia Ferrari HP,Múltiplas advertências,3 segundo(s),,,
+21:03.914,11,KISE 7,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+22:16.839,12,KISE 7,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+24:06.257,12,Djr,Mercedes-AMG Petronas,Limites da pista excedidos,Aviso,,,
+25:06.348,13,Pevs,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+25:20.761,13,Tapioca Sideral,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+26:45.512,14,Brad,Scuderia Ferrari HP,Cruzou a linha branca do pit lane,Aviso,,,
+26:55.202,14,Tapioca Sideral,Visa Cash App Racing Bulls,Cruzou a linha branca do pit lane,Aviso,,,
+28:32.552,14,Tapioca Sideral,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+28:32.564,14,Tapioca Sideral,Visa Cash App Racing Bulls,Múltiplas advertências,3 segundo(s),,,
+28:44.838,15,Pevs,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+29:24.863,15,Pessoa,Red Bull,Limites da pista excedidos,Aviso,,,
+30:45.264,16,Pevs,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+30:45.283,16,Pevs,Scuderia Ferrari HP,Múltiplas advertências,3 segundo(s),,,
+31:39.475,16,Pessoa,Mercedes-AMG Petronas,Dano terminal,NC,,,
+32:07.806,16,Minato,Red Bull,Excesso de velocidade com safety car na pista,Punição de drive through,,,
+33:40.690,17,Tapioca Sideral,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+38:02.964,19,Tapioca Sideral,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
