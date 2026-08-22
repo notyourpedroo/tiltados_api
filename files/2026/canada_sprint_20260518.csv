@@ -1,0 +1,26 @@
+﻿Pos.,Piloto,Equipe,Grid,Paradas,Melhor tempo,Tempo,Pts.,tipo de piloto
+1,Yohan,Red Bull,1,0,1:13.070,6:12.818,25,Pessoa
+2,Matheus,Visa Cash App Racing Bulls,5,0,1:13.604,2.056,18,Pessoa
+3,Gabriel,Visa Cash App Racing Bulls,2,0,1:14.176,2.519,15,Pessoa
+4,Douglas,Mercedes-AMG Petronas,3,0,1:13.991,4.602,12,Pessoa
+5,Erick,Red Bull,4,0,1:14.558,8.793,10,Pessoa
+6,Paulo,Scuderia Ferrari HP,7,0,1:13.569,12.965,8,Pessoa
+7,Bryan,Scuderia Ferrari HP,6,1,1:14.724,NC,0,Pessoa
+,,,,,,,,
+Tempo,Volta,Piloto,Equipe,Incidente,Punição,,,
+21.414,1,Bryan,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+22.278,1,Paulo,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+1:36.715,2,Paulo,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+3:01.351,3,Paulo,Scuderia Ferrari HP,Corte de curvas,Aviso,,,
+3:01.370,3,Paulo,Scuderia Ferrari HP,Múltiplas advertências,2 segundo(s),,,
+3:45.801,3,Pessoa,Red Bull,Limites da pista excedidos,Aviso,,,
+3:47.775,3,Paulo,Scuderia Ferrari HP,Colisão com Bryan,Aviso,,,
+4:15.650,4,Bryan,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+4:31.457,4,Paulo,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+4:39.997,4,Bryan,Scuderia Ferrari HP,Corte de curvas,2 segundo(s),,,
+5:17.686,5,Douglas,Mercedes-AMG Petronas,Limites da pista excedidos,Aviso,,,
+5:24.054,5,Paulo,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+6:06.466,5,Yohan,Red Bull,Limites da pista excedidos,Aviso,,,
+6:14.846,5,Paulo,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+6:14.865,5,Paulo,Scuderia Ferrari HP,Múltiplas advertências,2 segundo(s),,,
+6:15.532,5,Paulo,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,

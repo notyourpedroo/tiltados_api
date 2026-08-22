@@ -1,0 +1,27 @@
+﻿Pos.,Piloto,Equipe,Grid,Paradas,Melhor tempo,Tempo,Pts.,tipo de piloto
+1,Paulo,Scuderia Ferrari HP,1,0,1:37.186,8:09.952,25,Pessoa
+2,Gabriel,Visa Cash App Racing Bulls,7,0,1:37.648,1.511,15,Pessoa
+3,Douglas,Mercedes-AMG Petronas,5,0,1:36.705,2.318,18,Pessoa
+4,Yohan,Red Bull,3,0,1:36.462,7.163,12,Pessoa
+6,Erick,Red Bull,6,0,1:39.267,14.043,8,Pessoa
+6,Matheus,Visa Cash App Racing Bulls,2,0,1:36.105,19.388,10,Pessoa
+7,Bryan,Scuderia Ferrari HP,4,0,1:36.500,+ 1 volta,6,Pessoa
+,,,,,,,,
+Tempo,Volta,Piloto,Equipe,Incidente,Punição,,,
+12.913,1,Matheus,Visa Cash App Racing Bulls,Colisão com Bryan,2 segundo(s),,,
+13.02,1,Matheus,Visa Cash App Racing Bulls,Colisão com Bryan,Aviso,,,
+12.982,1,Bryan,Scuderia Ferrari HP,Colisão com Matheus,Aviso,,,
+13.567,1,Douglas,Mercedes-AMG Petronas,Colisão com Pessoa,Aviso,,,
+13.583,1,Pessoa,Visa Cash App Racing Bulls,Colisão com Douglas,2 segundo(s),,,
+3:12.502,2,Matheus,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+3:33.242,3,Pessoa,Red Bull,Corte de curvas,Aviso,,,
+4:48.760,3,Paulo,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+5:01.050,4,Paulo,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+5:10.128,4,Pessoa,Red Bull,Limites da pista excedidos,Aviso,,,
+5:12.269,4,Pessoa,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+5:44.274,4,Douglas,Mercedes-AMG Petronas,Limites da pista excedidos,Aviso,,,
+5:47.293,4,Douglas,Mercedes-AMG Petronas,Limites da pista excedidos,Aviso,,,
+7:35.334,5,Pessoa,Red Bull,Limites da pista excedidos,Aviso,,,
+7:35.338,5,Pessoa,Red Bull,Múltiplas advertências,2 segundo(s),,,
+9:99.999,99,Matheus,Visa Cash App Racing Bulls,Colisão com Bryan,10 segundo(s),,,
+9:99.999,99,Gabriel,Visa Cash App Racing Bulls,Colisão com Douglas,-2 segundo(s),,,

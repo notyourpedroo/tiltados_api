@@ -1,0 +1,36 @@
+﻿Pos.,Piloto,Equipe,Grid,Paradas,Melhor tempo,Tempo,Pts.,tipo de piloto
+1,Matheus,Visa Cash App Racing Bulls,1,2,1:21.674,45:58.311,25,Pessoa
+2,Gabriel,Visa Cash App Racing Bulls,4,2,1:22.284,18.009,18,Pessoa
+3,Paulo,Scuderia Ferrari HP,3,4,1:22.279,33.568,15,Pessoa
+4,Bryan,Scuderia Ferrari HP,5,3,1:23.466,46.372,12,Pessoa
+5,Erick,Red Bull,6,2,1:24.912,+1:03.512,10,Pessoa
+6,Yohan,Red Bull,2,1,1:22.634,NC,0,Pessoa
+,,,,,,,,
+Tempo,Volta,Piloto,Equipe,Incidente,Punição,,,
+10.881,1,Pessoa,Red Bull,Colisão com Pessoa,Aviso,,,
+11.219,1,Pessoa,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+2:09.948,2,Pessoa,Red Bull,Limites da pista excedidos,Aviso,,,
+4:50.741,4,Pessoa,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+5:14.261,4,Pessoa,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+9:29.412,7,Pessoa,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+10:20.405,8,Pessoa,Red Bull,Limites da pista excedidos,Aviso,,,
+13:18.340,10,Pessoa,Visa Cash App Racing Bulls,Cruzou a linha branca do pit lane,Aviso,,,
+17:14.071,12,Pessoa,Red Bull,Limites da pista excedidos,Aviso,,,
+19:58.465,13,Pessoa,Red Bull,Limites da pista excedidos,Aviso,,,
+20:36.157,14,Pessoa,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+20:36.187,14,Pessoa,Scuderia Ferrari HP,Múltiplas advertências,3 segundo(s),,,
+20:48.195,14,Pessoa,Scuderia Ferrari HP,Corte de curvas,Aviso,,,
+21:58.997,15,Pessoa,Red Bull,Dano terminal,NC,,,
+23:18.774,15,Pessoa,Scuderia Ferrari HP,Excesso de velocidade com safety car na pista,Punição de drive through,,,
+23:29.791,15,Pessoa,Scuderia Ferrari HP,Excesso de velocidade no pit lane,Punição de 10 segundo(s),,,
+25:22.786,16,Pessoa,Red Bull,Limites da pista excedidos,Aviso,,,
+25:22.798,16,Pessoa,Red Bull,Múltiplas advertências,3 segundo(s),,,
+29:57.533,19,Pessoa,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+30:34.921,19,Pessoa,Scuderia Ferrari HP,Excesso de velocidade no pit lane,Punição de 10 segundo(s),,,
+32:43.836,21,Pessoa,Red Bull,Limites da pista excedidos,Aviso,,,
+35:19.106,22,Pessoa,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+37:29.605,24,Pessoa,Red Bull,Limites da pista excedidos,Aviso,,,
+44:27.400,28,Pessoa,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+44:27.419,28,Pessoa,Scuderia Ferrari HP,Múltiplas advertências,3 segundo(s),,,
+45:22.137,29,Pessoa,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+46:21.888,29,Pessoa,Scuderia Ferrari HP,Punição não cumprida,10 segundo(s),,,
