@@ -1,0 +1,31 @@
+race_id,race_name,race_date,race_location,is_sprint
+1,GP da Austrália,2025-03-16,Melbourne,FALSE
+2,GP da China (SPRINT),2025-03-23,Xangai,TRUE
+3,GP da China,2025-03-23,Xangai,FALSE
+4,GP do Japão,2025-04-06,Suzuka,FALSE
+5,GP do Barém,2025-04-13,Sakhir,FALSE
+6,GP da Arábia Saudita,2025-04-20,Gidá,FALSE
+7,GP de Miami (SPRINT),2025-05-04,Miami Gardens,TRUE
+8,GP de Miami,2025-05-04,Miami Gardens,FALSE
+9,GP da Emília-Romanha,2025-05-18,Ímola,FALSE
+10,GP de Mônaco,2025-05-25,Monte Carlo,FALSE
+11,GP da Espanha,2025-06-01,Montmeló,FALSE
+12,GP do Canadá,2025-06-15,Montreal,FALSE
+13,GP da Áustria,2025-06-29,Spielberg,FALSE
+14,GP da Grã-Bretanha,2025-07-06,Silverstone,FALSE
+15,GP da Bélgica (SPRINT),2025-07-27,Spa-Francorchamps,TRUE
+16,GP da Bélgica,2025-07-27,Spa-Francorchamps,FALSE
+17,GP da Hungria,2025-08-03,Mogyoród,FALSE
+18,GP dos Países Baixos,2025-08-31,Zandvoort,FALSE
+19,GP da Itália,2025-09-07,Monza,FALSE
+20,GP do Azerbaijão,2025-09-21,Bacu,FALSE
+21,GP de Singapura,2025-10-05,Marina Bay,FALSE
+22,GP dos Estados Unidos (SPRINT),2025-10-19,Austin,TRUE
+23,GP dos Estados Unidos,2025-10-19,Austin,FALSE
+24,GP da Cidade do México,2025-10-26,Cidade do México,FALSE
+25,GP de São Paulo (SPRINT),2025-11-09,São Paulo,TRUE
+26,GP de São Paulo,2025-11-09,São Paulo,FALSE
+27,GP de Las Vegas,2025-11-23,Las Vegas,FALSE
+28,GP do Catar (SPRINT),2025-11-30,Lusail,TRUE
+29,GP do Catar,2025-11-30,Lusail,FALSE
+30,GP de Abu Dhabi,2025-12-07,Abu Dhabi,FALSE

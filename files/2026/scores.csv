@@ -1,0 +1,13 @@
+score_id,position,points,is_sprint
+1,1,25,FALSE
+2,2,18,FALSE
+3,3,15,FALSE
+4,4,12,FALSE
+5,5,10,FALSE
+6,6,8,FALSE
+7,1,8,TRUE
+8,2,7,TRUE
+9,3,6,TRUE
+10,4,5,TRUE
+11,5,4,TRUE
+12,6,3,TRUE
