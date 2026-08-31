@@ -1,0 +1,37 @@
+﻿Pos.,Piloto,Equipe,Grid,Paradas,Melhor tempo,Tempo,Pts.,tipo de piloto
+1,Yohan,Red Bull,1,3,1:13.024,48:49.695,25,Pessoa
+2,Paulo,Scuderia Ferrari HP,4,4,1:13.259,27.208,18,Pessoa
+3,Matheus,Visa Cash App Racing Bulls,2,3,1:13.007,NC,0,Pessoa
+4,Gabriel,Visa Cash App Racing Bulls,6,2,1:14.704,NC,0,Pessoa
+5,Bryan,Scuderia Ferrari HP,3,3,1:13.121,NC,0,Pessoa
+6,Erick,Red Bull,5,2,1:15.355,NC,0,Pessoa
+,,,,,,,,
+Tempo,Volta,Piloto,Equipe,Incidente,Punição,,,
+10.604,1,Pessoa,Red Bull,Colisão com Gabriel,Aviso,,,
+10.62,1,Gabriel,Visa Cash App Racing Bulls,Colisão com Pessoa,Aviso,,,
+12.358,1,Matheus,Visa Cash App Racing Bulls,Colisão com Yohan,Aviso,,,
+12.373,1,Yohan,Red Bull,Colisão com Matheus,Aviso,,,
+2:18.158,2,Bryan,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+7:38.449,6,Erick,Red Bull,Limites da pista excedidos,Aviso,,,
+8:20.179,7,Bryan,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+9:32.560,8,Bryan,Scuderia Ferrari HP,Cruzou a linha branca do pit lane,Aviso,,,
+13:40.950,11,Bryan,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+13:40.982,11,Bryan,Scuderia Ferrari HP,Múltiplas advertências,3 segundo(s),,,
+14:09.438,12,Paulo,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+16:48.786,13,Bryan,Scuderia Ferrari HP,Colisão com Gabriel,Aviso,,,
+16:48.786,13,Bryan,Scuderia Ferrari HP,Colisão com Gabriel,Aviso,,,
+16:48.770,13,Gabriel,Visa Cash App Racing Bulls,Colisão com Brad,Aviso,,,
+16:48.856,13,Gabriel,Visa Cash App Racing Bulls,Colisão com Brad,Aviso,,,
+17:27.737,13,Bryan,Scuderia Ferrari HP,Excesso de velocidade no pit lane,Punição de 10 segundo(s),,,
+17:56.216,14,Bryan,Scuderia Ferrari HP,Cruzou a linha branca do pit lane,Punição de 10 segundo(s),,,
+17:57.080,14,Gabriel,Visa Cash App Racing Bulls,Cruzou a linha branca do pit lane,Aviso,,,
+18:10.366,13,Erick,Red Bull,Dano terminal,NC,,,
+18:33.633,14,Bryan,Scuderia Ferrari HP,Excesso de velocidade com safety car na pista,Punição de drive through,,,
+18:49.655,14,Bryan,Scuderia Ferrari HP,Excesso de velocidade com safety car na pista,Punição de drive through,,,
+19:05.669,14,Bryan,Scuderia Ferrari HP,Excesso de velocidade com safety car na pista,Punição de drive through,,,
+19:51.952,15,Bryan,Scuderia Ferrari HP,Cruzou a linha branca do pit lane,Punição de 10 segundo(s),,,
+22:51.924,17,Paulo,Scuderia Ferrari HP,Ignorar bandeira amarela,Punição de 10 segundo(s),,,
+25:18.294,18,Gabriel,Visa Cash App Racing Bulls,Dano terminal,NC,,,
+33:34.072,25,Paulo,Scuderia Ferrari HP,Excesso de velocidade no pit lane,Punição de 10 segundo(s),,,
+39:15.299,29,Yohan,Red Bull,Colisão com Paulo,Aviso,,,
+41:50.281,31,Matheus,Visa Cash App Racing Bulls,Dano terminal,NC,,,
