@@ -1,0 +1,13 @@
+﻿Pos.,Piloto,Equipe,Grid,Paradas,Melhor tempo,Tempo,Pts.,tipo de piloto
+1,Yohan,Red Bull,3,0,1:11.763,6:03.821,25,Pessoa
+2,Matheus,Visa Cash App Racing Bulls,1,0,1:12.181,1.799,18,Pessoa
+3,Paulo,Scuderia Ferrari HP,2,0,1:12.773,5.626,15,Pessoa
+4,Erick,Red Bull,4,0,1:13.457,12.984,12,Pessoa
+5,Gabriel,Visa Cash App Racing Bulls,6,0,1:14.796,20.659,10,Pessoa
+6,Bryan,Scuderia Ferrari HP,5,0,1:12.084,NC,0,Pessoa
+,,,,,,,,
+Tempo,Volta,Piloto,Equipe,Incidente,Punição,,,
+36.491,1,Yohan,Red Bull,Limites da pista excedidos,Aviso,,,
+36.96,1,Paulo,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+58.139,1,Gabriel,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+3:17.251,3,Bryan,Scuderia Ferrari HP,Dano terminal,NC,,,
