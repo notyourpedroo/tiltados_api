@@ -1,0 +1,33 @@
+﻿Pos.,Piloto,Equipe,Grid,Paradas,Melhor tempo,Tempo,Pts.,tipo de piloto
+1,Douglas,Mercedes-AMG Petronas,4,2,1:46.016,53:58.565,25,Pessoa
+2,Gabriel,Visa Cash App Racing Bulls,5,4,1:45.056,1.924,18,Pessoa
+3,Erick,Red Bull,6,4,1:46.219,5.44,15,Pessoa
+4,Paulo,Scuderia Ferrari HP,7,6,1:47.001,+ 1 volta,12,Pessoa
+5,Yohan,Red Bull,1,2,1:44.858,+ 1 volta,10,Pessoa
+6,Matheus,Visa Cash App Racing Bulls,3,2,1:45.039,NC,0,Pessoa
+7,Bryan,Scuderia Ferrari HP,2,3,1:45.179,NC,0,Pessoa
+,,,,,,,,
+Tempo,Volta,Piloto,Equipe,Incidente,Punição,,,
+11.014,1,Matheus,Visa Cash App Racing Bulls,Colisão com Gabriel,Aviso,,,
+22.182,1,Erick,Red Bull,Colisão com Paulo,Aviso,,,
+1:25.932,1,Bryan,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+3:26.345,2,Gabriel,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+4:46.241,3,Erick,Red Bull,Limites da pista excedidos,Aviso,,,
+12:53.247,8,Yohan,Red Bull,Cruzou a linha branca do pit lane,Aviso,,,
+14:07.195,8,Yohan,Red Bull,Limites da pista excedidos,Aviso,,,
+15:38.615,9,Gabriel,Visa Cash App Racing Bulls,Cruzou a linha branca do pit lane,Aviso,,,
+18:50.544,10,Yohan,Red Bull,Colisão com Safety Car,Aviso,,,
+20:18.526,11,Yohan,Red Bull,Colisão com Safety Car,Aviso,,,
+22:03.035,12,Erick,Red Bull,Colisão com Paulo,Aviso,,,
+22:23.559,12,Yohan,Red Bull,Colisão com Bryan,Aviso,,,
+22:36.572,12,Yohan,Red Bull,Corte de curvas,Aviso,,,
+28:52.733,15,Bryan,Scuderia Ferrari HP,Dano terminal,NC,,,
+35:48.179,18,Matheus,Visa Cash App Racing Bulls,Dano terminal,NC,,,
+42:41.301,21,Gabriel,Visa Cash App Racing Bulls,Colisão com Erick,Aviso,,,
+43:23.676,21,Douglas,Mercedes-AMG Petronas,Limites da pista excedidos,Aviso,,,
+45:41.474,22,Erick,Red Bull,Limites da pista excedidos,Aviso,,,
+46:12.270,22,Paulo,Scuderia Ferrari HP,Corte de curvas,3 segundo(s),,,
+46:41.850,23,Yohan,Red Bull,Colisão com Douglas,Aviso,,,
+50:07.023,24,Paulo,Scuderia Ferrari HP,Limites da pista excedidos,Aviso,,,
+53:21.927,26,Yohan,Red Bull,Dano terminal,NC,,,
+53:32.400,26,Paulo,Scuderia Ferrari HP,Dano terminal,NC,,,
