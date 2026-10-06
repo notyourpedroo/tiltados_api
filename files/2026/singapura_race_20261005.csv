@@ -1,0 +1,45 @@
+﻿Pos.,Piloto,Equipe,Grid,Paradas,Melhor tempo,Tempo,Pts.,tipo de piloto
+1,Matheus,Visa Cash App Racing Bulls,2,2,1:34.316,57:12.638,25,Pessoa
+2,Yohan,Red Bull,1,2,1:34.755,12.752,18,Pessoa
+3,Douglas,Mercedes-AMG Petronas,3,3,1:37.197,50.786,15,Pessoa
+4,Erick,Red Bull,7,4,1:36.443,+ 1 volta,12,Pessoa
+5,Gabriel,Visa Cash App Racing Bulls,6,3,1:37.743,+ 1 volta,10,Pessoa
+6,Paulo,Scuderia Ferrari HP,4,3,1:39.302,NC,0,Pessoa
+7,Bryan,Scuderia Ferrari HP,5,2,1:36.792,NC,0,Pessoa
+,,,,,,,,
+Tempo,Volta,Piloto,Equipe,Incidente,Punição,,,
+12.048,1,Douglas,Mercedes-AMG Petronas,Colisão com Pevs,Aviso,,,
+1:55.852,2,Gabriel,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+2:15.000,2,Erick,Red Bull,Limites da pista excedidos,Aviso,,,
+4:01.412,3,Erick,Red Bull,Colisão com Brad,Aviso,,,
+5:10.443,3,Douglas,Mercedes-AMG Petronas,Excesso de velocidade no pit lane,Punição de 10 segundo(s),,,
+6:57.806,4,Gabriel,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+8:33.942,6,Yohan,Red Bull,Limites da pista excedidos,Aviso,,,
+9:04.812,6,Yohan,Red Bull,Limites da pista excedidos,Aviso,,,
+9:10.731,6,Douglas,Mercedes-AMG Petronas,Limites da pista excedidos,Aviso,,,
+9:37.129,6,Gabriel,Visa Cash App Racing Bulls,Cruzou a linha branca do pit lane,Aviso,,,
+10:17.475,6,Yohan,Red Bull,Excesso de velocidade no pit lane,Punição de 10 segundo(s),,,
+10:48.181,7,Yohan,Red Bull,Cruzou a linha branca do pit lane,Aviso,,,
+11:01.500,7,Yohan,Red Bull,Limites da pista excedidos,Aviso,,,
+11:01.506,7,Yohan,Red Bull,Múltiplas advertências,3 segundo(s),,,
+11:12.451,6,Gabriel,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+11:12.456,6,Gabriel,Visa Cash App Racing Bulls,Múltiplas advertências,3 segundo(s),,,
+12:36.731,8,Yohan,Red Bull,Limites da pista excedidos,Aviso,,,
+12:47.716,8,Yohan,Red Bull,Limites da pista excedidos,Aviso,,,
+14:32.387,9,Douglas,Mercedes-AMG Petronas,Limites da pista excedidos,Aviso,,,
+27:02.596,15,Gabriel,Visa Cash App Racing Bulls,Excesso de velocidade com safety car na pista,Punição de drive through,,,
+27:18.609,15,Gabriel,Visa Cash App Racing Bulls,Excesso de velocidade com safety car na pista,Punição de drive through,,,
+28:58.372,16,Gabriel,Visa Cash App Racing Bulls,Cruzou a linha branca do pit lane,Punição de 10 segundo(s),,,
+29:13.515,16,Erick,Red Bull,Limites da pista excedidos,Aviso,,,
+37:22.553,20,Gabriel,Visa Cash App Racing Bulls,Cruzou a linha branca do pit lane,Punição de 10 segundo(s),,,
+37:22.649,20,Gabriel,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+37:22.752,20,Gabriel,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+39:04.614,20,Gabriel,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+39:04.620,20,Gabriel,Visa Cash App Racing Bulls,Múltiplas advertências,3 segundo(s),,,
+41:13.097,22,Yohan,Red Bull,Limites da pista excedidos,Aviso,,,
+41:13.102,22,Yohan,Red Bull,Múltiplas advertências,3 segundo(s),,,
+43:10.767,24,Yohan,Red Bull,Limites da pista excedidos,Aviso,,,
+44:46.153,24,Yohan,Red Bull,Limites da pista excedidos,Aviso,,,
+46:34.622,24,Gabriel,Visa Cash App Racing Bulls,Limites da pista excedidos,Aviso,,,
+58:17.264,30,Gabriel,Visa Cash App Racing Bulls,Colisão com Erick,Aviso,,,
+58:18.447,30,Gabriel,Visa Cash App Racing Bulls,Punição não cumprida,10 segundo(s),,,
