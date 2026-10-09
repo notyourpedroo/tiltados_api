@@ -48,6 +48,40 @@ A API estara disponivel em:
 - Documentacao interativa (Swagger UI): `http://localhost:8000/docs`
 - Documentacao alternativa (ReDoc): `http://localhost:8000/redoc`
 
+## Atualizacao Automatica dos Dados
+
+Os dados sao lidos dos CSVs em `files/` e guardados em cache. O cache e invalidado sozinho sempre que um CSV e adicionado, editado ou removido, entao **nao e preciso reiniciar o servidor** para ver os dados novos.
+
+Isso vale para qualquer arquivo em `files/` (2025, 2026 e `super_license`). Mudancas no codigo Python (`main.py` ou `scripts/`) ainda exigem reiniciar o servidor, ou usar `--reload`.
+
+## Adicionando uma Nova Corrida (2026)
+
+1. Salve o CSV da sessao em `files/2026/` seguindo o padrao de nome:
+
+   ```
+   {local}_{race|sprint}_{YYYYMMDD}.csv
+   ```
+
+   Exemplos: `singapura_race_20261005.csv`, `silverstone_sprint_20260728.csv`.
+
+   - `{local}` deve estar em minusculas e sem acentos. Se nao estiver no mapeamento `LOCATION_MAP` (em `scripts/2026/load_races.py` e `scripts/2026/load_results.py`), o nome do GP e derivado do arquivo (ex.: `GP de Spa`). Para ter o nome oficial, adicione a entrada nos dois arquivos.
+   - `race` ou `sprint` define o tipo da sessao.
+   - `YYYYMMDD` e a data da sessao.
+
+2. O CSV deve ter o cabecalho e as colunas do exportado do site de resultados:
+
+   ```
+   Pos.,Piloto,Equipe,Grid,Paradas,Melhor tempo,Tempo,Pts.,tipo de piloto
+   ```
+
+   A leitura para na primeira linha em branco, na que comeca com `,,,,` ou na que comeca com `Tempo,`. Tudo que vier depois disso e ignorado.
+
+3. Pronto. Corridas, resultados, pilotos e equipes de 2026 sao derivados da pasta `files/2026/`. Pilotos com nome `Pessoa` sao ignorados na lista de pilotos (e os resultados desses placeholders sao atribuidos ao piloto Gabriel, no caso da Visa Cash App Racing Bulls).
+
+   Se a corrida tiver punicao de Superlicenca, registre tambem em `files/super_license/punishments.csv` (colunas `season_year,driver_id,race_id,deduction_points,penalty_reason`).
+
+A pontuacao de cada posicao vem de `files/2026/scores.csv` (colunas `position`, `points`, `is_sprint`).
+
 ## Endpoints Disponiveis
 
 O parametro `{season}` aceita os valores `2025` ou `2026`.
@@ -64,7 +98,28 @@ O parametro `{season}` aceita os valores `2025` ou `2026`.
 | GET | `/load/2026/punishments` | Relatorio de punicoes da Superlicenca (2026) |
 | GET | `/load/2026/super-license` | Status e saldo de pontos da Superlicenca (2026) |
 
+## Regras de Negocio
+
+**Classificacao (pilotos e construtores)**
+- Pontos vem de `scores.csv`, cruzando a posicao final com o tipo da sessao (corrida ou sprint).
+- Desempate: pontos, depois vitorias em GP, depois podios.
+- `races` conta sessoes disputadas, ou seja, corridas e sprints somadas. `wins` conta apenas corridas (GP); `sprint_wins` conta apenas sprints.
+
+**Superlicenca (2026)**
+- Cada piloto comeca com 12 pontos.
+- Cada punicao em `files/super_license/punishments.csv` deduz pontos (`deduction_points`).
+- Status conforme os pontos restantes:
+
+| Pontos restantes | Status |
+|---|---|
+| 9 a 12 | `Regular` |
+| 5 a 8 | `Atencao` |
+| 1 a 4 | `Alerta Critico` |
+| 0 ou menos | `Suspenso (Ban)` |
+
 ## Exemplos de Uso e Respostas
+
+Os valores abaixo sao do estado atual dos dados (temporada 2026, ate o GP de Singapura).
 
 ### 1. Informacoes da API
 `GET /`
@@ -72,7 +127,7 @@ O parametro `{season}` aceita os valores `2025` ou `2026`.
 ```json
 {
   "name": "Tiltados API",
-  "version": "v2.26.0822",
+  "version": "v2.26.1009",
   "seasons": [
     2025,
     2026
@@ -115,11 +170,11 @@ O parametro `{season}` aceita os valores `2025` ou `2026`.
     "driver_name": "Matheus",
     "team_id": 7,
     "team_name": "Visa Cash App Racing Bulls",
-    "points": 212,
-    "wins": 6,
+    "points": 385,
+    "wins": 10,
     "sprint_wins": 2,
-    "podiums": 11,
-    "races": 12
+    "podiums": 20,
+    "races": 22
   },
   {
     "position": 2,
@@ -127,11 +182,11 @@ O parametro `{season}` aceita os valores `2025` ou `2026`.
     "driver_name": "Yohan",
     "team_id": 1,
     "team_name": "Red Bull",
-    "points": 134,
-    "wins": 1,
-    "sprint_wins": 1,
-    "podiums": 7,
-    "races": 12
+    "points": 289,
+    "wins": 4,
+    "sprint_wins": 3,
+    "podiums": 15,
+    "races": 22
   }
 ]
 ```
@@ -145,17 +200,17 @@ O parametro `{season}` aceita os valores `2025` ou `2026`.
     "position": 1,
     "team_id": 7,
     "team_name": "Visa Cash App Racing Bulls",
-    "points": 309,
-    "wins": 6,
-    "podiums": 14
+    "points": 560,
+    "wins": 10,
+    "podiums": 25
   },
   {
     "position": 2,
     "team_id": 1,
     "team_name": "Red Bull",
-    "points": 192,
-    "wins": 1,
-    "podiums": 7
+    "points": 443,
+    "wins": 4,
+    "podiums": 17
   }
 ]
 ```
@@ -177,15 +232,37 @@ O parametro `{season}` aceita os valores `2025` ou `2026`.
     "status": "Atencao"
   },
   {
-    "driver_id": 5,
-    "driver_name": "Matheus",
-    "team_id": 7,
-    "team_name": "Visa Cash App Racing Bulls",
+    "driver_id": 8,
+    "driver_name": "Douglas",
+    "team_id": 6,
+    "team_name": "Mercedes-AMG Petronas",
     "initial_points": 12,
-    "deducted_points": 2,
-    "remaining_points": 10,
+    "deducted_points": 3,
+    "remaining_points": 9,
     "punishments_count": 1,
     "status": "Regular"
+  }
+]
+```
+
+### 6. Punicoes da Superlicenca (2026)
+`GET /load/2026/punishments`
+
+```json
+[
+  {
+    "season_year": 2026,
+    "driver_id": 5,
+    "race_id": 3,
+    "deduction_points": 2,
+    "penalty_reason": "Causou uma colisão"
+  },
+  {
+    "season_year": 2026,
+    "driver_id": 8,
+    "race_id": 37,
+    "deduction_points": 3,
+    "penalty_reason": "Causou uma colisão"
   }
 ]
 ```
@@ -196,12 +273,12 @@ O parametro `{season}` aceita os valores `2025` ou `2026`.
 tiltados_api/
 |-- files/
 |   |-- 2025/               # CSVs consolidados da temporada 2025
-|   |-- 2026/               # CSVs de cada sessao da temporada 2026
+|   |-- 2026/               # CSVs de cada sessao da temporada 2026 (+ scores.csv)
 |   `-- super_license/      # Arquivo de punicoes da superlicenca
 |-- scripts/
 |   |-- 2025/               # Modulos de extracao e calculo de 2025
 |   `-- 2026/               # Modulos de extracao e calculo de 2026
-|-- main.py                 # Aplicacao FastAPI e definicao de rotas
+|-- main.py                 # Aplicacao FastAPI, cache e definicao de rotas
 |-- requirements.txt        # Dependencias do projeto
 `-- README.md               # Documentacao do projeto
 ```
