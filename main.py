@@ -12,9 +12,10 @@ Documentação interativa (Swagger UI):
     http://localhost:8000/docs
 """
 
+import functools
+import glob
 import os
 import importlib
-from functools import lru_cache
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Path
@@ -74,75 +75,99 @@ def _df_to_records(df):
 
 
 # ── Cache dos dados ──────────────────────────────────────────────────────────
-# lru_cache evita re-processar CSVs a cada request.
-# Para invalidar o cache (ex: após adicionar novo CSV), reinicie o servidor.
+# Evita re-processar CSVs a cada request. O cache é invalidado automaticamente
+# quando qualquer CSV em files/ é adicionado, removido ou modificado.
 
-@lru_cache(maxsize=1)
+def _files_fingerprint():
+    """Assinatura (caminho, mtime, tamanho) de todos os CSVs em files/."""
+    fingerprint = []
+    for path in sorted(glob.glob(os.path.join(BASE_DIR, "files", "**", "*.csv"), recursive=True)):
+        stat = os.stat(path)
+        fingerprint.append((path, stat.st_mtime_ns, stat.st_size))
+    return tuple(fingerprint)
+
+
+def _cached_until_files_change(func):
+    """Mantém o último resultado de func e recalcula só quando files/ muda."""
+    cache = {}
+
+    @functools.wraps(func)
+    def wrapper():
+        fingerprint = _files_fingerprint()
+        if cache.get("fingerprint") != fingerprint:
+            cache["value"] = func()
+            cache["fingerprint"] = fingerprint
+        return cache["value"]
+
+    return wrapper
+
+
+@_cached_until_files_change
 def _get_2025_drivers():
     return load_2025_drivers(base_path=_files_path(2025))
 
 
-@lru_cache(maxsize=1)
+@_cached_until_files_change
 def _get_2025_teams():
     return load_2025_teams(base_path=_files_path(2025))
 
 
-@lru_cache(maxsize=1)
+@_cached_until_files_change
 def _get_2025_races():
     return load_2025_races(base_path=_files_path(2025))
 
 
-@lru_cache(maxsize=1)
+@_cached_until_files_change
 def _get_2025_results():
     return load_2025_results(base_path=_files_path(2025))
 
 
-@lru_cache(maxsize=1)
+@_cached_until_files_change
 def _get_2025_driver_standings():
     return calculate_2025_standings(type="drivers", base_path=_files_path(2025))
 
 
-@lru_cache(maxsize=1)
+@_cached_until_files_change
 def _get_2025_team_standings():
     return calculate_2025_standings(type="teams", base_path=_files_path(2025))
 
 
-@lru_cache(maxsize=1)
+@_cached_until_files_change
 def _get_2026_drivers():
     return load_2026_drivers(base_path=_files_path(2026), base_path_2025=_files_path_2025())
 
 
-@lru_cache(maxsize=1)
+@_cached_until_files_change
 def _get_2026_teams():
     return load_2026_teams(base_path=_files_path(2026), base_path_2025=_files_path_2025())
 
 
-@lru_cache(maxsize=1)
+@_cached_until_files_change
 def _get_2026_races():
     return load_2026_races(base_path=_files_path(2026), base_path_2025=_files_path_2025())
 
 
-@lru_cache(maxsize=1)
+@_cached_until_files_change
 def _get_2026_results():
     return load_2026_results(base_path=_files_path(2026), base_path_2025=_files_path_2025())
 
 
-@lru_cache(maxsize=1)
+@_cached_until_files_change
 def _get_2026_driver_standings():
     return calculate_2026_standings(type="drivers", base_path=_files_path(2026), base_path_2025=_files_path_2025())
 
 
-@lru_cache(maxsize=1)
+@_cached_until_files_change
 def _get_2026_team_standings():
     return calculate_2026_standings(type="teams", base_path=_files_path(2026), base_path_2025=_files_path_2025())
 
 
-@lru_cache(maxsize=1)
+@_cached_until_files_change
 def _get_2026_punishments():
     return load_2026_punishments(base_path=_files_path_sl(), season_year=2026)
 
 
-@lru_cache(maxsize=1)
+@_cached_until_files_change
 def _get_2026_super_license():
     return calculate_2026_super_license(
         base_path_sl=_files_path_sl(),
