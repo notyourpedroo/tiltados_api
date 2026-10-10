@@ -11,3 +11,6 @@ __pycache__/
 # IDE
 .vscode/
 .idea/
+
+# Claude Code (preferencias pessoais)
+.claude/settings.local.json
