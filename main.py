@@ -224,7 +224,7 @@ def _load_data(season: str, resource: str):
 app = FastAPI(
     title="Tiltados API",
     description="API REST para dados da liga Tiltados F1 — temporadas 2025 e 2026.",
-    version="v2.26.1009",
+    version="v2.26.1010",
 )
 
 app.add_middleware(
@@ -243,7 +243,7 @@ def root():
     """Informações básicas da API."""
     return {
         "name": "Tiltados API",
-        "version": "v2.26.1009",
+        "version": "v2.26.1010",
         "seasons": [2025, 2026],
         "docs": "/docs",
     }
