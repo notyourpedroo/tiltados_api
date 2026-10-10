@@ -76,7 +76,7 @@ Isso vale para qualquer arquivo em `files/` (2025, 2026 e `super_license`). Muda
 
    A leitura para na primeira linha em branco, na que comeca com `,,,,` ou na que comeca com `Tempo,`. Tudo que vier depois disso e ignorado.
 
-3. Pronto. Corridas, resultados, pilotos e equipes de 2026 sao derivados da pasta `files/2026/`. Pilotos com nome `Pessoa` sao ignorados na lista de pilotos (e os resultados desses placeholders sao atribuidos ao piloto Gabriel, no caso da Visa Cash App Racing Bulls).
+3. Pronto. Corridas, resultados, pilotos e equipes de 2026 sao derivados da pasta `files/2026/`. Se o export vier com o nome `Pessoa` (placeholder do site) ou vazio no lugar do piloto, troque pelo nome real antes de salvar. Caso contrario, os endpoints de 2026 que dependem de pilotos retornam erro indicando o arquivo e a linha a corrigir.
 
    Se a corrida tiver punicao de Superlicenca, registre tambem em `files/super_license/punishments.csv` (colunas `season_year,driver_id,race_id,deduction_points,penalty_reason`).
 

@@ -207,7 +207,10 @@ def _load_data(season: str, resource: str):
     if not loader:
         raise HTTPException(status_code=404, detail=f"Recurso '{resource}' não disponível para {season}.")
 
-    df = loader()
+    try:
+        df = loader()
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     records = _df_to_records(df)
 
     if records is None:
@@ -295,7 +298,10 @@ def get_punishments():
 @app.get("/load/2026/super-license", summary="Status da Superlicença (2026)")
 def get_super_license():
     """Retorna o status da Superlicença de cada piloto na temporada 2026."""
-    df = _get_2026_super_license()
+    try:
+        df = _get_2026_super_license()
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     records = _df_to_records(df)
     if records is None:
         raise HTTPException(status_code=500, detail="Erro ao carregar dados da Superlicença de 2026.")

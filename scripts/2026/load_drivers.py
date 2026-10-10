@@ -38,6 +38,14 @@ def _normalize_team_name(name):
     return n
 
 
+def _is_placeholder_driver(value):
+    """Indica se o nome do piloto está vazio ou é o placeholder 'Pessoa' do export."""
+    if pd.isna(value):
+        return True
+    name = str(value).strip()
+    return not name or name.lower() == "pessoa"
+
+
 def load_drivers(base_path="./files/2026", base_path_2025="./files/2025"):
     """
     Lê os arquivos de resultados de 2026 e extrai os pilotos participantes.
@@ -110,12 +118,17 @@ def load_drivers(base_path="./files/2026", base_path_2025="./files/2025"):
 
             df_temp = pd.read_csv(io.StringIO("".join(lines)))
             if "Piloto" in df_temp.columns and "Equipe" in df_temp.columns:
-                for _, row in df_temp.iterrows():
+                for i, row in df_temp.iterrows():
+                    if _is_placeholder_driver(row.get("Piloto")):
+                        raise ValueError(
+                            f"Piloto não identificado em {os.path.basename(file_path)}, "
+                            f"linha {i + 2}: '{row.get('Piloto')}'. Corrija o nome do piloto no CSV."
+                        )
+
                     driver_name = str(row.get("Piloto", "")).strip()
                     team_name = str(row.get("Equipe", "")).strip()
 
-                    # Ignora placeholders como 'Pessoa' ou entradas vazias
-                    if driver_name and driver_name.lower() != "pessoa" and team_name:
+                    if team_name:
                         teams_found.add(team_name)
                         driver_team_map[driver_name] = team_name
 
@@ -161,6 +174,8 @@ def load_drivers(base_path="./files/2026", base_path_2025="./files/2025"):
 
         return df_drivers
 
+    except ValueError:
+        raise
     except Exception as e:
         print(f"Erro ao extrair pilotos de 2026 em {base_path}: {e}")
         return None
