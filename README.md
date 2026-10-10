@@ -64,7 +64,7 @@ Isso vale para qualquer arquivo em `files/` (2025, 2026 e `super_license`). Muda
 
    Exemplos: `singapura_race_20261005.csv`, `silverstone_sprint_20260728.csv`.
 
-   - `{local}` deve estar em minusculas e sem acentos. Se nao estiver no mapeamento `LOCATION_MAP` (em `scripts/2026/load_races.py` e `scripts/2026/load_results.py`), o nome do GP e derivado do arquivo (ex.: `GP de Spa`). Para ter o nome oficial, adicione a entrada nos dois arquivos.
+   - `{local}` deve estar em minusculas e sem acentos. Se nao estiver no mapeamento `LOCATION_MAP` (em `scripts/2026/load_races.py` e `scripts/2026/load_results.py`), o nome do GP e derivado do arquivo (ex.: `GP de Imola`) e a corrida recebe um `race_id` novo em vez de reaproveitar o de 2025. Para ter o nome oficial, adicione a entrada nos dois arquivos, com o nome do GP igual ao de `files/2025/races.csv`.
    - `race` ou `sprint` define o tipo da sessao.
    - `YYYYMMDD` e a data da sessao.
 
@@ -260,7 +260,7 @@ Os valores abaixo sao do estado atual dos dados (temporada 2026, ate o GP de Sin
   {
     "season_year": 2026,
     "driver_id": 8,
-    "race_id": 37,
+    "race_id": 34,
     "deduction_points": 3,
     "penalty_reason": "Causou uma colisão"
   }
