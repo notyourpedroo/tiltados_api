@@ -127,7 +127,7 @@ Os valores abaixo sao do estado atual dos dados (temporada 2026, ate o GP de Sin
 ```json
 {
   "name": "Tiltados API",
-  "version": "v2.26.1009",
+  "version": "v2.26.1010",
   "seasons": [
     2025,
     2026
