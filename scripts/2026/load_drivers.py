@@ -9,6 +9,7 @@ de 2026, associando os IDs das equipes e mantendo a consistência de IDs entre t
 import glob
 import io
 import os
+import re
 import pandas as pd
 
 
@@ -46,13 +47,22 @@ def _is_placeholder_driver(value):
     return not name or name.lower() == "pessoa"
 
 
+def _session_sort_key(file_path):
+    """Ordena as sessões por data e, no mesmo dia, sprint antes da corrida."""
+    match = re.match(r"([a-zA-Z_]+)_(race|sprint)_(\d{8})\.csv", os.path.basename(file_path), re.IGNORECASE)
+    if not match:
+        return ("", False)
+    _, session_type, date_raw = match.groups()
+    return (date_raw, session_type.lower() != "sprint")
+
+
 def load_drivers(base_path="./files/2026", base_path_2025="./files/2025"):
     """
     Lê os arquivos de resultados de 2026 e extrai os pilotos participantes.
 
     Gera um DataFrame com as seguintes colunas:
     - driver_id: ID único do piloto (mantém consistência com histórico de 2025)
-    - team_id: ID da equipe correspondente (mantém consistência com histórico de 2025)
+    - team_id: ID da equipe na sessão mais recente do piloto (mantém consistência com histórico de 2025)
     - driver_name: Nome do piloto
 
     Args:
@@ -97,8 +107,9 @@ def load_drivers(base_path="./files/2026", base_path_2025="./files/2025"):
 
         max_team_id = max(team_id_map.values()) if team_id_map else 0
 
-        # 3. Extrair equipes e pilotos de 2026 a partir dos CSVs
-        csv_files = glob.glob(os.path.join(base_path, "*.csv"))
+        # 3. Extrair equipes e pilotos de 2026 a partir dos CSVs, em ordem cronológica,
+        #    para que a equipe de cada piloto seja a da sessão mais recente
+        csv_files = sorted(glob.glob(os.path.join(base_path, "*.csv")), key=_session_sort_key)
         driver_team_map = {}
         teams_found = set()
 
