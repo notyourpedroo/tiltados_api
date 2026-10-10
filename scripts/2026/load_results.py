@@ -39,6 +39,14 @@ def _normalize_team_name(name):
     return n
 
 
+def _is_placeholder_driver(value):
+    """Indica se o nome do piloto está vazio ou é o placeholder 'Pessoa' do export."""
+    if pd.isna(value):
+        return True
+    name = str(value).strip()
+    return not name or name.lower() == "pessoa"
+
+
 # Mapeamento de locais e nomes canônicos de GP
 LOCATION_MAP = {
     "australia": ("GP da Austrália", "Melbourne"),
@@ -180,10 +188,13 @@ def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
             if lines:
                 df_temp = pd.read_csv(io.StringIO("".join(lines)))
                 if "Piloto" in df_temp.columns:
-                    for d in df_temp["Piloto"].dropna():
-                        d_str = str(d).strip()
-                        if d_str and d_str.lower() != "pessoa":
-                            drivers_found.add(d_str)
+                    for i, d in df_temp["Piloto"].items():
+                        if _is_placeholder_driver(d):
+                            raise ValueError(
+                                f"Piloto não identificado em {file_name}, "
+                                f"linha {i + 2}: '{d}'. Corrija o nome do piloto no CSV."
+                            )
+                        drivers_found.add(str(d).strip())
                 if "Equipe" in df_temp.columns:
                     for t in df_temp["Equipe"].dropna():
                         t_str = str(t).strip()
@@ -242,11 +253,6 @@ def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
                 driver_name = str(row.get("Piloto", "")).strip()
                 team_name = str(row.get("Equipe", "")).strip()
 
-                # Resolver placeholder 'Pessoa' quando presente
-                if driver_name.lower() == "pessoa":
-                    if "racing bulls" in team_name.lower() or "visa" in team_name.lower():
-                        driver_name = "Gabriel"
-
                 driver_id = driver_id_map.get(driver_name)
 
                 # Resolver team_id
@@ -278,6 +284,8 @@ def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
 
         return df_results
 
+    except ValueError:
+        raise
     except Exception as e:
         print(f"Erro ao extrair resultados de 2026 em {base_path}: {e}")
         return None

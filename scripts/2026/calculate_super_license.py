@@ -114,6 +114,8 @@ def calculate_super_license(
         ]
         return df_sl[cols]
 
+    except ValueError:
+        raise
     except Exception as e:
         print(f"Erro ao calcular a Superlicenca de 2026: {e}")
         return None
