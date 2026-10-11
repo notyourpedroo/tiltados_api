@@ -168,7 +168,13 @@ def _get_2026_team_standings():
 
 @_cached_until_files_change
 def _get_2026_punishments():
-    return load_2026_punishments(base_path=_files_path_sl(), season_year=2026)
+    return load_2026_punishments(
+        base_path=_files_path_sl(),
+        season_year=2026,
+        enriched=True,
+        base_path_2026=_files_path(2026),
+        base_path_2025=_files_path_2025(),
+    )
 
 
 @_cached_until_files_change

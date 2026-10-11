@@ -261,17 +261,29 @@ Os valores abaixo sao do estado atual dos dados (temporada 2026, ate o GP de Sin
     "driver_id": 5,
     "race_id": 3,
     "deduction_points": 2,
-    "penalty_reason": "Causou uma colisão"
+    "penalty_reason": "Causou uma colisão",
+    "driver_name": "Matheus",
+    "team_id": 7,
+    "team_name": "Visa Cash App Racing Bulls",
+    "race_name": "GP da China",
+    "race_date": "2026-03-09"
   },
   {
     "season_year": 2026,
     "driver_id": 8,
     "race_id": 34,
     "deduction_points": 3,
-    "penalty_reason": "Causou uma colisão"
+    "penalty_reason": "Causou uma colisão",
+    "driver_name": "Douglas",
+    "team_id": 6,
+    "team_name": "Mercedes-AMG Petronas",
+    "race_name": "GP de Singapura (SPRINT)",
+    "race_date": "2026-10-05"
   }
 ]
 ```
+
+Cada punicao precisa apontar para um `driver_id` e um `race_id` existentes em 2026; caso contrario, o endpoint retorna erro indicando a linha do `punishments.csv`.
 
 ## Estrutura do Projeto
 
