@@ -6,75 +6,24 @@ Este módulo processa os arquivos de resultados de corridas e sprints de 2026,
 vinculando race_id, driver_id e team_id com os dados padronizados da liga.
 """
 
-import glob
-import io
 import os
-import re
+import sys
 import pandas as pd
 
-
-def _normalize_team_name(name):
-    """Normaliza o nome da equipe para correspondência entre temporadas."""
-    n = name.lower().strip()
-    if "red bull" in n and "racing bulls" not in n:
-        return "red bull"
-    if "ferrari" in n:
-        return "ferrari"
-    if "mercedes" in n:
-        return "mercedes"
-    if "racing bulls" in n or "vcarb" in n:
-        return "racing bulls"
-    if "alpine" in n:
-        return "alpine"
-    if "mclaren" in n:
-        return "mclaren"
-    if "sauber" in n or "kick" in n:
-        return "sauber"
-    if "aston" in n:
-        return "aston martin"
-    if "williams" in n:
-        return "williams"
-    if "haas" in n:
-        return "haas"
-    return n
-
-
-def _is_placeholder_driver(value):
-    """Indica se o nome do piloto está vazio ou é o placeholder 'Pessoa' do export."""
-    if pd.isna(value):
-        return True
-    name = str(value).strip()
-    return not name or name.lower() == "pessoa"
-
-
-# Mapeamento de locais e nomes canônicos de GP
-LOCATION_MAP = {
-    "australia": ("GP da Austrália", "Melbourne"),
-    "china": ("GP da China", "Xangai"),
-    "japao": ("GP do Japão", "Suzuka"),
-    "bahrein": ("GP do Barém", "Sakhir"),
-    "arabia_saudita": ("GP da Arábia Saudita", "Gidá"),
-    "miami": ("GP de Miami", "Miami Gardens"),
-    "emilia_romanha": ("GP da Emília-Romanha", "Ímola"),
-    "canada": ("GP do Canadá", "Montreal"),
-    "monaco": ("GP de Mônaco", "Monte Carlo"),
-    "espanha": ("GP da Espanha", "Montmeló"),
-    "silverstone": ("GP da Grã-Bretanha", "Silverstone"),
-    "austria": ("GP da Áustria", "Spielberg"),
-    "belgica": ("GP da Bélgica", "Spa-Francorchamps"),
-    "spa": ("GP da Bélgica", "Spa-Francorchamps"),
-    "hungria": ("GP da Hungria", "Mogyoród"),
-    "holanda": ("GP dos Países Baixos", "Zandvoort"),
-    "italia": ("GP da Itália", "Monza"),
-    "azerbaijao": ("GP do Azerbaijão", "Bacu"),
-    "singapura": ("GP de Singapura", "Marina Bay"),
-    "estados_unidos": ("GP dos Estados Unidos", "Austin"),
-    "mexico": ("GP da Cidade do México", "Cidade do México"),
-    "brasil": ("GP de São Paulo", "São Paulo"),
-    "las_vegas": ("GP de Las Vegas", "Las Vegas"),
-    "catar": ("GP do Catar", "Lusail"),
-    "abu_dhabi": ("GP de Abu Dhabi", "Abu Dhabi"),
-}
+# Suporta tanto importação relativa de pacote quanto execução direta de script
+try:
+    from .common import list_sessions, read_session_results
+    from .load_drivers import load_drivers
+    from .load_races import load_races
+    from .load_teams import load_teams
+except (ImportError, ValueError):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    from common import list_sessions, read_session_results
+    from load_drivers import load_drivers
+    from load_races import load_races
+    from load_teams import load_teams
 
 
 def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
@@ -102,6 +51,7 @@ def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
 
     Raises:
         FileNotFoundError: Se o diretório base de 2026 não existir.
+        ValueError: Se algum resultado tiver o piloto vazio ou como 'Pessoa'.
     """
     if not os.path.exists(base_path):
         raise FileNotFoundError(
@@ -109,155 +59,34 @@ def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
         )
 
     try:
-        # 1. Carregar mapeamento de IDs de pilotos
-        driver_id_map = {}
-        drivers_2025_file = os.path.join(base_path_2025, "drivers.csv")
-        if os.path.exists(drivers_2025_file):
-            df_2025_drivers = pd.read_csv(drivers_2025_file)
-            driver_id_map = dict(zip(df_2025_drivers["driver_name"], df_2025_drivers["driver_id"]))
+        # 1. IDs de corridas, pilotos e equipes vêm dos próprios loaders,
+        #    para que todos os endpoints usem o mesmo mapeamento
+        df_races = load_races(base_path=base_path, base_path_2025=base_path_2025)
+        df_drivers = load_drivers(base_path=base_path, base_path_2025=base_path_2025)
+        df_teams = load_teams(base_path=base_path, base_path_2025=base_path_2025)
 
-        max_driver_id = max(driver_id_map.values()) if driver_id_map else 0
+        if df_races is None or df_drivers is None or df_teams is None:
+            return None
 
-        # 2. Carregar mapeamento de IDs de equipes
-        team_id_map = {}
-        norm_team_to_id = {}
-        teams_2025_file = os.path.join(base_path_2025, "teams.csv")
-        if os.path.exists(teams_2025_file):
-            df_2025_teams = pd.read_csv(teams_2025_file)
-            for _, row in df_2025_teams.iterrows():
-                tid = int(row["team_id"])
-                tname = str(row["team_name"]).strip()
-                team_id_map[tname] = tid
-                norm_team_to_id[_normalize_team_name(tname)] = tid
+        race_id_map = {
+            (str(name).lower(), bool(sprint)): rid
+            for rid, name, sprint in zip(df_races["race_id"], df_races["race_name"], df_races["is_sprint"])
+        }
+        driver_id_map = dict(zip(df_drivers["driver_name"], df_drivers["driver_id"]))
+        team_id_map = dict(zip(df_teams["team_name"], df_teams["team_id"]))
 
-        max_team_id = max(team_id_map.values()) if team_id_map else 0
-
-        # 3. Carregar mapeamento canônico de corridas
-        canonical_race_map = {}
-        max_canonical_race_id = 0
-        races_2025_file = os.path.join(base_path_2025, "races.csv")
-        if os.path.exists(races_2025_file):
-            df_2025_races = pd.read_csv(races_2025_file)
-            for _, row in df_2025_races.iterrows():
-                rid = int(row["race_id"])
-                rname = str(row["race_name"]).strip().lower()
-                sprint = bool(row["is_sprint"])
-                canonical_race_map[(rname, sprint)] = rid
-                if rid > max_canonical_race_id:
-                    max_canonical_race_id = rid
-
-        # 4. Ler e identificar arquivos de 2026
-        csv_files = glob.glob(os.path.join(base_path, "*.csv"))
-        file_sessions = []
-        teams_found = set()
-        drivers_found = set()
-
-        for file_path in csv_files:
-            file_name = os.path.basename(file_path)
-            if file_name.startswith("scores"):
-                continue
-
-            match = re.match(r"([a-zA-Z_]+)_(race|sprint)_(\d{8})\.csv", file_name, re.IGNORECASE)
-            if not match:
-                continue
-
-            loc_raw, session_type, date_raw = match.groups()
-            is_sprint = (session_type.lower() == "sprint")
-            formatted_date = f"{date_raw[:4]}-{date_raw[4:6]}-{date_raw[6:]}"
-
-            loc_key = loc_raw.lower()
-            base_gp_name, _ = LOCATION_MAP.get(
-                loc_key, (f"GP de {loc_raw.capitalize()}", loc_raw.capitalize())
-            )
-            race_name = f"{base_gp_name} (SPRINT)" if is_sprint else base_gp_name
-
-            file_sessions.append({
-                "file_path": file_path,
-                "race_name": race_name,
-                "race_date": formatted_date,
-                "is_sprint": is_sprint
-            })
-
-            # Extração de equipes e pilotos com pandas para evitar capturar cabeçalhos
-            lines = []
-            with open(file_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if not line.strip() or line.startswith(",,,,") or line.startswith("Tempo,"):
-                        break
-                    lines.append(line)
-            if lines:
-                df_temp = pd.read_csv(io.StringIO("".join(lines)))
-                if "Piloto" in df_temp.columns:
-                    for i, d in df_temp["Piloto"].items():
-                        if _is_placeholder_driver(d):
-                            raise ValueError(
-                                f"Piloto não identificado em {file_name}, "
-                                f"linha {i + 2}: '{d}'. Corrija o nome do piloto no CSV."
-                            )
-                        drivers_found.add(str(d).strip())
-                if "Equipe" in df_temp.columns:
-                    for t in df_temp["Equipe"].dropna():
-                        t_str = str(t).strip()
-                        if t_str:
-                            teams_found.add(t_str)
-
-        # 5. Atribuir team_ids e driver_ids de forma ordenada e determinística
-        for team_name in sorted(list(teams_found)):
-            norm = _normalize_team_name(team_name)
-            if team_name in team_id_map:
-                continue
-            elif norm in norm_team_to_id:
-                team_id_map[team_name] = norm_team_to_id[norm]
-            else:
-                max_team_id += 1
-                team_id_map[team_name] = max_team_id
-                norm_team_to_id[norm] = max_team_id
-
-        for driver_name in sorted(list(drivers_found)):
-            if driver_name not in driver_id_map:
-                max_driver_id += 1
-                driver_id_map[driver_name] = max_driver_id
-
-        # Ordenar sessões cronologicamente
-        file_sessions.sort(key=lambda x: (x["race_date"], not x["is_sprint"]))
-
-        # Mapear race_id canônico para cada sessão
-        for session in file_sessions:
-            key = (session["race_name"].lower(), session["is_sprint"])
-            if key in canonical_race_map:
-                session["race_id"] = canonical_race_map[key]
-            else:
-                max_canonical_race_id += 1
-                canonical_race_map[key] = max_canonical_race_id
-                session["race_id"] = max_canonical_race_id
-
-        # 6. Extrair resultados de cada arquivo
+        # 2. Extrair resultados de cada sessão, em ordem cronológica
         all_results = []
-        for session in file_sessions:
-            race_id = session["race_id"]
-            file_path = session["file_path"]
+        for session in list_sessions(base_path):
+            race_id = race_id_map[(session["race_name"].lower(), session["is_sprint"])]
 
-            lines = []
-            with open(file_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if not line.strip() or line.startswith(",,,,") or line.startswith("Tempo,"):
-                        break
-                    lines.append(line)
-
-            if not lines:
+            df_session = read_session_results(session["file_path"])
+            if df_session is None:
                 continue
-
-            df_session = pd.read_csv(io.StringIO("".join(lines)))
 
             for _, row in df_session.iterrows():
                 driver_name = str(row.get("Piloto", "")).strip()
                 team_name = str(row.get("Equipe", "")).strip()
-
-                driver_id = driver_id_map.get(driver_name)
-
-                # Resolver team_id
-                norm_team = _normalize_team_name(team_name)
-                team_id = team_id_map.get(team_name, norm_team_to_id.get(norm_team))
 
                 start_pos = int(row["Grid"])
                 final_pos = int(row["Pos."])
@@ -266,8 +95,8 @@ def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
 
                 all_results.append({
                     "race_id": race_id,
-                    "driver_id": driver_id,
-                    "team_id": team_id,
+                    "driver_id": driver_id_map.get(driver_name),
+                    "team_id": team_id_map.get(team_name),
                     "driver_start_position": start_pos,
                     "driver_final_position": final_pos,
                     "grid_result": grid_result,

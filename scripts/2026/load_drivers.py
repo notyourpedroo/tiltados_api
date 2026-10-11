@@ -6,37 +6,20 @@ Este módulo extrai os pilotos participantes a partir dos arquivos de resultados
 de 2026, associando os IDs das equipes e mantendo a consistência de IDs entre temporadas.
 """
 
-import glob
-import io
 import os
-import re
+import sys
 import pandas as pd
 
-
-def _normalize_team_name(name):
-    """Normaliza o nome da equipe para correspondência entre temporadas."""
-    n = name.lower().strip()
-    if "red bull" in n and "racing bulls" not in n:
-        return "red bull"
-    if "ferrari" in n:
-        return "ferrari"
-    if "mercedes" in n:
-        return "mercedes"
-    if "racing bulls" in n or "vcarb" in n:
-        return "racing bulls"
-    if "alpine" in n:
-        return "alpine"
-    if "mclaren" in n:
-        return "mclaren"
-    if "sauber" in n or "kick" in n:
-        return "sauber"
-    if "aston" in n:
-        return "aston martin"
-    if "williams" in n:
-        return "williams"
-    if "haas" in n:
-        return "haas"
-    return n
+# Suporta tanto importação relativa de pacote quanto execução direta de script
+try:
+    from .common import list_sessions, read_session_results
+    from .load_teams import load_teams
+except (ImportError, ValueError):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    from common import list_sessions, read_session_results
+    from load_teams import load_teams
 
 
 def _is_placeholder_driver(value):
@@ -45,15 +28,6 @@ def _is_placeholder_driver(value):
         return True
     name = str(value).strip()
     return not name or name.lower() == "pessoa"
-
-
-def _session_sort_key(file_path):
-    """Ordena as sessões por data e, no mesmo dia, sprint antes da corrida."""
-    match = re.match(r"([a-zA-Z_]+)_(race|sprint)_(\d{8})\.csv", os.path.basename(file_path), re.IGNORECASE)
-    if not match:
-        return ("", False)
-    _, session_type, date_raw = match.groups()
-    return (date_raw, session_type.lower() != "sprint")
 
 
 def load_drivers(base_path="./files/2026", base_path_2025="./files/2025"):
@@ -77,6 +51,7 @@ def load_drivers(base_path="./files/2026", base_path_2025="./files/2025"):
 
     Raises:
         FileNotFoundError: Se o diretório base de 2026 não existir.
+        ValueError: Se algum resultado tiver o piloto vazio ou como 'Pessoa'.
     """
     if not os.path.exists(base_path):
         raise FileNotFoundError(
@@ -93,88 +68,48 @@ def load_drivers(base_path="./files/2026", base_path_2025="./files/2025"):
 
         max_driver_id = max(driver_id_map.values()) if driver_id_map else 0
 
-        # 2. Carregar mapeamento de IDs de equipes existentes (2025)
-        team_id_map = {}
-        norm_team_to_id = {}
-        teams_2025_file = os.path.join(base_path_2025, "teams.csv")
-        if os.path.exists(teams_2025_file):
-            df_2025_teams = pd.read_csv(teams_2025_file)
-            for _, row in df_2025_teams.iterrows():
-                tid = int(row["team_id"])
-                tname = str(row["team_name"]).strip()
-                team_id_map[tname] = tid
-                norm_team_to_id[_normalize_team_name(tname)] = tid
-
-        max_team_id = max(team_id_map.values()) if team_id_map else 0
-
-        # 3. Extrair equipes e pilotos de 2026 a partir dos CSVs, em ordem cronológica,
+        # 2. Extrair pilotos de 2026 em ordem cronológica,
         #    para que a equipe de cada piloto seja a da sessão mais recente
-        csv_files = sorted(glob.glob(os.path.join(base_path, "*.csv")), key=_session_sort_key)
         driver_team_map = {}
-        teams_found = set()
 
-        for file_path in csv_files:
-            if os.path.basename(file_path).startswith("scores"):
+        for session in list_sessions(base_path):
+            df_session = read_session_results(session["file_path"])
+            if df_session is None or "Piloto" not in df_session.columns or "Equipe" not in df_session.columns:
                 continue
 
-            lines = []
-            with open(file_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if not line.strip() or line.startswith(",,,,") or line.startswith("Tempo,"):
-                        break
-                    lines.append(line)
+            for i, row in df_session.iterrows():
+                if _is_placeholder_driver(row.get("Piloto")):
+                    raise ValueError(
+                        f"Piloto não identificado em {os.path.basename(session['file_path'])}, "
+                        f"linha {i + 2}: '{row.get('Piloto')}'. Corrija o nome do piloto no CSV."
+                    )
 
-            if not lines:
-                continue
+                driver_name = str(row.get("Piloto", "")).strip()
+                team_name = str(row.get("Equipe", "")).strip()
 
-            df_temp = pd.read_csv(io.StringIO("".join(lines)))
-            if "Piloto" in df_temp.columns and "Equipe" in df_temp.columns:
-                for i, row in df_temp.iterrows():
-                    if _is_placeholder_driver(row.get("Piloto")):
-                        raise ValueError(
-                            f"Piloto não identificado em {os.path.basename(file_path)}, "
-                            f"linha {i + 2}: '{row.get('Piloto')}'. Corrija o nome do piloto no CSV."
-                        )
-
-                    driver_name = str(row.get("Piloto", "")).strip()
-                    team_name = str(row.get("Equipe", "")).strip()
-
-                    if team_name:
-                        teams_found.add(team_name)
-                        driver_team_map[driver_name] = team_name
+                if team_name:
+                    driver_team_map[driver_name] = team_name
 
         if not driver_team_map:
             print("Nenhum piloto encontrado nos arquivos de 2026.")
             return None
 
-        # 4. Resolver team_id para cada equipe encontrada
-        for team_name in sorted(list(teams_found)):
-            norm = _normalize_team_name(team_name)
-            if team_name in team_id_map:
-                continue
-            elif norm in norm_team_to_id:
-                team_id_map[team_name] = norm_team_to_id[norm]
-            else:
-                max_team_id += 1
-                team_id_map[team_name] = max_team_id
-                norm_team_to_id[norm] = max_team_id
+        # 3. IDs das equipes vêm de load_teams, a fonte única desse mapeamento
+        df_teams = load_teams(base_path=base_path, base_path_2025=base_path_2025)
+        if df_teams is None:
+            return None
+        team_id_map = dict(zip(df_teams["team_name"], df_teams["team_id"]))
 
-        # 5. Construir o DataFrame de pilotos
+        # 4. Construir o DataFrame de pilotos
         rows = []
         for driver_name in sorted(driver_team_map.keys()):
             if driver_name not in driver_id_map:
                 max_driver_id += 1
                 driver_id_map[driver_name] = max_driver_id
 
-            team_name = driver_team_map[driver_name]
-            tid = team_id_map.get(team_name)
-            if tid is None:
-                norm = _normalize_team_name(team_name)
-                tid = norm_team_to_id.get(norm)
-
             rows.append({
                 "driver_id": int(driver_id_map[driver_name]),
-                "team_id": int(tid),
+                "team_id": int(team_id_map[driver_team_map[driver_name]]),
                 "driver_name": driver_name
             })
 

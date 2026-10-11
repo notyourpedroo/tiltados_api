@@ -7,10 +7,18 @@ de 2026 e retorna um DataFrame com team_id e team_name, mantendo consistência d
 com as equipes de 2025.
 """
 
-import glob
-import io
 import os
+import sys
 import pandas as pd
+
+# Suporta tanto importação relativa de pacote quanto execução direta de script
+try:
+    from .common import list_sessions, read_session_results
+except (ImportError, ValueError):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    from common import list_sessions, read_session_results
 
 
 def _normalize_team_name(name):
@@ -83,25 +91,11 @@ def load_teams(base_path="./files/2026", base_path_2025="./files/2025"):
 
         # 2. Extrair equipes únicas presentes nos arquivos de 2026
         teams_found = set()
-        csv_files = glob.glob(os.path.join(base_path, "*.csv"))
 
-        for file_path in csv_files:
-            if os.path.basename(file_path).startswith("scores"):
-                continue
-
-            lines = []
-            with open(file_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if not line.strip() or line.startswith(",,,,") or line.startswith("Tempo,"):
-                        break
-                    lines.append(line)
-
-            if not lines:
-                continue
-
-            df_temp = pd.read_csv(io.StringIO("".join(lines)))
-            if "Equipe" in df_temp.columns:
-                for team in df_temp["Equipe"].dropna():
+        for session in list_sessions(base_path):
+            df_session = read_session_results(session["file_path"])
+            if df_session is not None and "Equipe" in df_session.columns:
+                for team in df_session["Equipe"].dropna():
                     team_clean = str(team).strip()
                     if team_clean:
                         teams_found.add(team_clean)

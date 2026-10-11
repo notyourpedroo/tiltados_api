@@ -6,44 +6,18 @@ Este módulo extrai as corridas e sprints de 2026 e mapeia os IDs canônicos
 por pista/sessão para manter consistência direta com 2025.
 """
 
-import glob
 import os
-import re
+import sys
 import pandas as pd
 
-
-# Mapeamento de locais e nomes canônicos de GP
-LOCATION_MAP = {
-    "australia": ("GP da Austrália", "Melbourne"),
-    "china": ("GP da China", "Xangai"),
-    "japao": ("GP do Japão", "Suzuka"),
-    "bahrein": ("GP do Barém", "Sakhir"),
-    "arabia_saudita": ("GP da Arábia Saudita", "Gidá"),
-    "miami": ("GP de Miami", "Miami Gardens"),
-    "emilia_romanha": ("GP da Emília-Romanha", "Ímola"),
-    "canada": ("GP do Canadá", "Montreal"),
-    "monaco": ("GP de Mônaco", "Monte Carlo"),
-    "espanha": ("GP da Espanha", "Montmeló"),
-    "silverstone": ("GP da Grã-Bretanha", "Silverstone"),
-    "austria": ("GP da Áustria", "Spielberg"),
-    "belgica": ("GP da Bélgica", "Spa-Francorchamps"),
-    "spa": ("GP da Bélgica", "Spa-Francorchamps"),
-    "hungria": ("GP da Hungria", "Mogyoród"),
-    "holanda": ("GP dos Países Baixos", "Zandvoort"),
-    "italia": ("GP da Itália", "Monza"),
-    "azerbaijao": ("GP do Azerbaijão", "Bacu"),
-    "singapura": ("GP de Singapura", "Marina Bay"),
-    "estados_unidos": ("GP dos Estados Unidos", "Austin"),
-    "mexico": ("GP da Cidade do México", "Cidade do México"),
-    "brasil": ("GP de São Paulo", "São Paulo"),
-    "las_vegas": ("GP de Las Vegas", "Las Vegas"),
-    "catar": ("GP do Catar", "Lusail"),
-    "abu_dhabi": ("GP de Abu Dhabi", "Abu Dhabi"),
-}
-
-
-def _normalize_location_key(location_raw):
-    return location_raw.lower().replace("_", "").strip()
+# Suporta tanto importação relativa de pacote quanto execução direta de script
+try:
+    from .common import list_sessions
+except (ImportError, ValueError):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    from common import list_sessions
 
 
 def load_races(base_path="./files/2026", base_path_2025="./files/2025"):
@@ -91,55 +65,29 @@ def load_races(base_path="./files/2026", base_path_2025="./files/2025"):
                 if rid > max_canonical_id:
                     max_canonical_id = rid
 
-        # 2. Identificar arquivos de 2026
-        csv_files = glob.glob(os.path.join(base_path, "*.csv"))
-        parsed_races = []
-
-        for file_path in csv_files:
-            file_name = os.path.basename(file_path)
-            if file_name.startswith("scores"):
-                continue
-
-            match = re.match(r"([a-zA-Z_]+)_(race|sprint)_(\d{8})\.csv", file_name, re.IGNORECASE)
-            if not match:
-                continue
-
-            loc_raw, session_type, date_raw = match.groups()
-            is_sprint = (session_type.lower() == "sprint")
-            formatted_date = f"{date_raw[:4]}-{date_raw[4:6]}-{date_raw[6:]}"
-
-            loc_key = loc_raw.lower()
-            base_gp_name, location = LOCATION_MAP.get(
-                loc_key, (f"GP de {loc_raw.capitalize()}", loc_raw.capitalize())
-            )
-            race_name = f"{base_gp_name} (SPRINT)" if is_sprint else base_gp_name
-
-            parsed_races.append({
-                "race_name": race_name,
-                "race_date": formatted_date,
-                "race_location": location,
-                "is_sprint": is_sprint
-            })
-
-        if not parsed_races:
+        # 2. Identificar as sessões de 2026, já em ordem cronológica
+        sessions = list_sessions(base_path)
+        if not sessions:
             print("Nenhuma corrida encontrada nos arquivos de 2026.")
             return None
 
-        # 3. Ordenar cronologicamente
-        parsed_races.sort(key=lambda x: (x["race_date"], not x["is_sprint"]))
-
-        # 4. Atribuir IDs canônicos
-        for race_item in parsed_races:
-            key = (race_item["race_name"].lower(), race_item["is_sprint"])
-            if key in canonical_map:
-                race_item["race_id"] = canonical_map[key]
-            else:
+        # 3. Atribuir IDs canônicos
+        parsed_races = []
+        for session in sessions:
+            key = (session["race_name"].lower(), session["is_sprint"])
+            if key not in canonical_map:
                 max_canonical_id += 1
                 canonical_map[key] = max_canonical_id
-                race_item["race_id"] = max_canonical_id
+
+            parsed_races.append({
+                "race_id": canonical_map[key],
+                "race_name": session["race_name"],
+                "race_date": session["race_date"],
+                "race_location": session["race_location"],
+                "is_sprint": session["is_sprint"]
+            })
 
         df_races = pd.DataFrame(parsed_races)
-        df_races = df_races[["race_id", "race_name", "race_date", "race_location", "is_sprint"]]
         df_races["race_id"] = df_races["race_id"].astype(int)
         df_races["is_sprint"] = df_races["is_sprint"].astype(bool)
 
