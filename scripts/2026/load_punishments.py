@@ -8,7 +8,16 @@ filtra/estrutura as penalidades aplicadas na temporada de 2026.
 
 import os
 import sys
-import pandas as pd
+
+# Suporta tanto importação relativa de pacote quanto execução direta de script
+try:
+    from ..errors import read_csv, require_columns, to_int_column
+except (ImportError, ValueError):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    for path in (current_dir, os.path.dirname(current_dir)):
+        if path not in sys.path:
+            sys.path.insert(0, path)
+    from errors import read_csv, require_columns, to_int_column
 
 
 def load_punishments(base_path="./files/super_license", season_year=2026, enriched=False):
@@ -30,67 +39,46 @@ def load_punishments(base_path="./files/super_license", season_year=2026, enrich
 
     Returns:
         pd.DataFrame: DataFrame com as punições da temporada.
-                      Retorna None se houver erro ao carregar os dados.
 
     Raises:
-        FileNotFoundError: Se o arquivo de punições não existir.
+        DataError: Se o arquivo de punições não existir, faltar coluna obrigatória
+                   ou houver valor numérico inválido.
     """
     punishments_file = os.path.join(base_path, "punishments.csv")
 
-    if not os.path.exists(punishments_file):
-        raise FileNotFoundError(
-            f"Arquivo de punições não encontrado em: {punishments_file}"
+    df_punishments = read_csv(punishments_file)
+    require_columns(df_punishments, [
+        "season_year", "driver_id", "race_id", "deduction_points", "penalty_reason"
+    ], punishments_file)
+
+    for column in ("season_year", "driver_id", "race_id", "deduction_points"):
+        df_punishments[column] = to_int_column(df_punishments, column, punishments_file)
+    df_punishments["penalty_reason"] = df_punishments["penalty_reason"].astype(str)
+
+    # Filtrar pelo ano especificado
+    df_filtered = df_punishments[df_punishments["season_year"] == int(season_year)].copy()
+
+    if enriched:
+        # Suporta tanto importação relativa de pacote quanto execução direta
+        try:
+            from .load_drivers import load_drivers
+            from .load_races import load_races
+        except (ImportError, ValueError):
+            from load_drivers import load_drivers
+            from load_races import load_races
+
+        df_filtered = df_filtered.merge(
+            load_drivers()[["driver_id", "driver_name", "team_id"]],
+            on="driver_id",
+            how="left"
+        )
+        df_filtered = df_filtered.merge(
+            load_races()[["race_id", "race_name", "race_date"]],
+            on="race_id",
+            how="left"
         )
 
-    try:
-        df_punishments = pd.read_csv(punishments_file)
-
-        df_punishments["season_year"] = df_punishments["season_year"].astype(int)
-        df_punishments["driver_id"] = df_punishments["driver_id"].astype(int)
-        df_punishments["race_id"] = df_punishments["race_id"].astype(int)
-        df_punishments["deduction_points"] = df_punishments["deduction_points"].astype(int)
-        df_punishments["penalty_reason"] = df_punishments["penalty_reason"].astype(str)
-
-        # Filtrar pelo ano especificado
-        df_filtered = df_punishments[df_punishments["season_year"] == int(season_year)].copy()
-
-        if enriched:
-            try:
-                # Suporta tanto importação relativa de pacote quanto execução direta
-                try:
-                    from .load_drivers import load_drivers
-                    from .load_races import load_races
-                except (ImportError, ValueError):
-                    current_dir = os.path.dirname(os.path.abspath(__file__))
-                    if current_dir not in sys.path:
-                        sys.path.insert(0, current_dir)
-                    from load_drivers import load_drivers
-                    from load_races import load_races
-
-                df_drivers = load_drivers()
-                df_races = load_races()
-
-                if df_drivers is not None:
-                    df_filtered = df_filtered.merge(
-                        df_drivers[["driver_id", "driver_name", "team_id"]],
-                        on="driver_id",
-                        how="left"
-                    )
-
-                if df_races is not None:
-                    df_filtered = df_filtered.merge(
-                        df_races[["race_id", "race_name", "race_date"]],
-                        on="race_id",
-                        how="left"
-                    )
-            except Exception as enrich_err:
-                print(f"Aviso: Não foi possível enriquecer os dados: {enrich_err}")
-
-        return df_filtered.reset_index(drop=True)
-
-    except Exception as e:
-        print(f"Erro ao ler {punishments_file}: {e}")
-        return None
+    return df_filtered.reset_index(drop=True)
 
 
 # Alias para retrocompatibilidade

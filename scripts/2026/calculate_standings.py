@@ -8,7 +8,6 @@ para calcular a pontuação total, vitórias, pódios e posições de pilotos e 
 
 import os
 import sys
-import pandas as pd
 
 # Suporta tanto importação relativa de pacote quanto execução direta de script
 try:
@@ -16,28 +15,29 @@ try:
     from .load_teams import load_teams
     from .load_races import load_races
     from .load_results import load_results
+    from ..errors import read_csv, require_columns, to_int_column
 except (ImportError, ValueError):
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    if current_dir not in sys.path:
-        sys.path.insert(0, current_dir)
+    for path in (current_dir, os.path.dirname(current_dir)):
+        if path not in sys.path:
+            sys.path.insert(0, path)
     from load_drivers import load_drivers
     from load_teams import load_teams
     from load_races import load_races
     from load_results import load_results
+    from errors import read_csv, require_columns, to_int_column
 
 
 def _calculate_base_points(base_path="./files/2026", base_path_2025="./files/2025"):
     """Função interna para cruzar resultados de 2026 com a tabela de pontuação (scores.csv)."""
     scores_file = os.path.join(base_path, "scores.csv")
-    if not os.path.exists(scores_file):
-        raise FileNotFoundError(f"Arquivo de pontuação não encontrado em: {scores_file}")
+    df_scores = read_csv(scores_file)
+    require_columns(df_scores, ["position", "points", "is_sprint"], scores_file)
+    df_scores["position"] = to_int_column(df_scores, "position", scores_file)
+    df_scores["points"] = to_int_column(df_scores, "points", scores_file)
 
-    df_scores = pd.read_csv(scores_file)
     df_results = load_results(base_path=base_path, base_path_2025=base_path_2025)
     df_races = load_races(base_path=base_path, base_path_2025=base_path_2025)
-
-    if df_results is None or df_races is None:
-        return None
 
     # Cruzar com corridas para obter is_sprint
     merged = df_results.merge(
@@ -73,8 +73,6 @@ def calculate_driver_standings(base_path="./files/2026", base_path_2025="./files
     - races: Total de sessões disputadas
     """
     merged = _calculate_base_points(base_path=base_path, base_path_2025=base_path_2025)
-    if merged is None:
-        return None
 
     df_drivers = load_drivers(base_path=base_path, base_path_2025=base_path_2025)
     df_teams = load_teams(base_path=base_path, base_path_2025=base_path_2025)
@@ -118,8 +116,6 @@ def calculate_team_standings(base_path="./files/2026", base_path_2025="./files/2
     - podiums: Total de pódios conquistados pelos pilotos da equipe
     """
     merged = _calculate_base_points(base_path=base_path, base_path_2025=base_path_2025)
-    if merged is None:
-        return None
 
     df_teams = load_teams(base_path=base_path, base_path_2025=base_path_2025)
 

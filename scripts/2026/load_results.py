@@ -16,14 +16,17 @@ try:
     from .load_drivers import load_drivers
     from .load_races import load_races
     from .load_teams import load_teams
+    from ..errors import require_dir
 except (ImportError, ValueError):
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    if current_dir not in sys.path:
-        sys.path.insert(0, current_dir)
+    for path in (current_dir, os.path.dirname(current_dir)):
+        if path not in sys.path:
+            sys.path.insert(0, path)
     from common import list_sessions, read_session_results
     from load_drivers import load_drivers
     from load_races import load_races
     from load_teams import load_teams
+    from errors import require_dir
 
 
 def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
@@ -47,77 +50,58 @@ def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
 
     Returns:
         pd.DataFrame: DataFrame com os resultados das sessões de 2026.
-                      Retorna None se houver erro ao carregar os dados.
 
     Raises:
-        FileNotFoundError: Se o diretório base de 2026 não existir.
-        ValueError: Se algum resultado tiver o piloto vazio ou como 'Pessoa'.
+        DataError: Se a pasta de 2026 não existir, algum CSV de sessão for inválido
+                   ou algum resultado tiver o piloto vazio ou como 'Pessoa'.
     """
-    if not os.path.exists(base_path):
-        raise FileNotFoundError(
-            f"Diretório de 2026 não encontrado em: {base_path}"
-        )
+    require_dir(base_path)
 
-    try:
-        # 1. IDs de corridas, pilotos e equipes vêm dos próprios loaders,
-        #    para que todos os endpoints usem o mesmo mapeamento
-        df_races = load_races(base_path=base_path, base_path_2025=base_path_2025)
-        df_drivers = load_drivers(base_path=base_path, base_path_2025=base_path_2025)
-        df_teams = load_teams(base_path=base_path, base_path_2025=base_path_2025)
+    # 1. IDs de corridas, pilotos e equipes vêm dos próprios loaders,
+    #    para que todos os endpoints usem o mesmo mapeamento
+    df_races = load_races(base_path=base_path, base_path_2025=base_path_2025)
+    df_drivers = load_drivers(base_path=base_path, base_path_2025=base_path_2025)
+    df_teams = load_teams(base_path=base_path, base_path_2025=base_path_2025)
 
-        if df_races is None or df_drivers is None or df_teams is None:
-            return None
+    race_id_map = {
+        (str(name).lower(), bool(sprint)): rid
+        for rid, name, sprint in zip(df_races["race_id"], df_races["race_name"], df_races["is_sprint"])
+    }
+    driver_id_map = dict(zip(df_drivers["driver_name"], df_drivers["driver_id"]))
+    team_id_map = dict(zip(df_teams["team_name"], df_teams["team_id"]))
 
-        race_id_map = {
-            (str(name).lower(), bool(sprint)): rid
-            for rid, name, sprint in zip(df_races["race_id"], df_races["race_name"], df_races["is_sprint"])
-        }
-        driver_id_map = dict(zip(df_drivers["driver_name"], df_drivers["driver_id"]))
-        team_id_map = dict(zip(df_teams["team_name"], df_teams["team_id"]))
+    # 2. Extrair resultados de cada sessão, em ordem cronológica
+    all_results = []
+    for session in list_sessions(base_path):
+        race_id = race_id_map[(session["race_name"].lower(), session["is_sprint"])]
 
-        # 2. Extrair resultados de cada sessão, em ordem cronológica
-        all_results = []
-        for session in list_sessions(base_path):
-            race_id = race_id_map[(session["race_name"].lower(), session["is_sprint"])]
+        df_session = read_session_results(session["file_path"])
+        if df_session is None:
+            continue
 
-            df_session = read_session_results(session["file_path"])
-            if df_session is None:
-                continue
+        for _, row in df_session.iterrows():
+            start_pos = int(row["Grid"])
+            final_pos = int(row["Pos."])
 
-            for _, row in df_session.iterrows():
-                driver_name = str(row.get("Piloto", "")).strip()
-                team_name = str(row.get("Equipe", "")).strip()
+            all_results.append({
+                "race_id": race_id,
+                "driver_id": driver_id_map[str(row["Piloto"]).strip()],
+                "team_id": team_id_map[str(row["Equipe"]).strip()],
+                "driver_start_position": start_pos,
+                "driver_final_position": final_pos,
+                "grid_result": final_pos - start_pos,
+                "driver_fastest_lap": str(row.get("Melhor tempo", "")).strip()
+            })
 
-                start_pos = int(row["Grid"])
-                final_pos = int(row["Pos."])
-                grid_result = final_pos - start_pos
-                fastest_lap = str(row.get("Melhor tempo", "")).strip()
+    df_results = pd.DataFrame(all_results)
+    df_results["race_id"] = df_results["race_id"].astype(int)
+    df_results["driver_id"] = df_results["driver_id"].astype(int)
+    df_results["team_id"] = df_results["team_id"].astype(int)
+    df_results["driver_start_position"] = df_results["driver_start_position"].astype(int)
+    df_results["driver_final_position"] = df_results["driver_final_position"].astype(int)
+    df_results["grid_result"] = df_results["grid_result"].astype(int)
 
-                all_results.append({
-                    "race_id": race_id,
-                    "driver_id": driver_id_map.get(driver_name),
-                    "team_id": team_id_map.get(team_name),
-                    "driver_start_position": start_pos,
-                    "driver_final_position": final_pos,
-                    "grid_result": grid_result,
-                    "driver_fastest_lap": fastest_lap
-                })
-
-        df_results = pd.DataFrame(all_results)
-        df_results["race_id"] = df_results["race_id"].astype(int)
-        df_results["driver_id"] = df_results["driver_id"].astype(int)
-        df_results["team_id"] = df_results["team_id"].astype(int)
-        df_results["driver_start_position"] = df_results["driver_start_position"].astype(int)
-        df_results["driver_final_position"] = df_results["driver_final_position"].astype(int)
-        df_results["grid_result"] = df_results["grid_result"].astype(int)
-
-        return df_results
-
-    except ValueError:
-        raise
-    except Exception as e:
-        print(f"Erro ao extrair resultados de 2026 em {base_path}: {e}")
-        return None
+    return df_results
 
 
 # Alias para retrocompatibilidade

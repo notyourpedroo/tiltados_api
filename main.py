@@ -14,12 +14,18 @@ Documentação interativa (Swagger UI):
 
 import functools
 import glob
+import logging
 import os
 import importlib
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Path
+from fastapi import FastAPI, HTTPException, Path, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from scripts.errors import DataError
+
+logger = logging.getLogger("tiltados_api")
 
 # ── Importar scripts existentes ──────────────────────────────────────────────
 # Os diretórios scripts/2025 e scripts/2026 têm nomes numéricos (inválidos como
@@ -69,8 +75,6 @@ def _files_path_sl() -> str:
 
 def _df_to_records(df):
     """Converte um DataFrame para lista de dicts serializáveis em JSON."""
-    if df is None:
-        return None
     return df.to_dict(orient="records")
 
 
@@ -207,16 +211,7 @@ def _load_data(season: str, resource: str):
     if not loader:
         raise HTTPException(status_code=404, detail=f"Recurso '{resource}' não disponível para {season}.")
 
-    try:
-        df = loader()
-    except ValueError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    records = _df_to_records(df)
-
-    if records is None:
-        raise HTTPException(status_code=500, detail=f"Erro ao carregar {resource} de {season}.")
-
-    return records
+    return _df_to_records(loader())
 
 
 # ── Aplicação FastAPI ────────────────────────────────────────────────────────
@@ -236,6 +231,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(DataError)
+async def data_error_handler(request: Request, exc: DataError):
+    """Problemas nos arquivos de files/ voltam ao cliente com a causa e o arquivo a corrigir."""
+    logger.warning("Erro nos dados em %s: %s", request.url.path, exc)
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
 # ── Rotas ────────────────────────────────────────────────────────────────────
@@ -290,21 +292,10 @@ def get_team_standings(season: SeasonType = Path(..., description="Ano da tempor
 @app.get("/load/2026/punishments", summary="Punições da Superlicença (2026)")
 def get_punishments():
     """Retorna as punições da Superlicença registradas na temporada 2026."""
-    df = _get_2026_punishments()
-    records = _df_to_records(df)
-    if records is None:
-        raise HTTPException(status_code=500, detail="Erro ao carregar punições de 2026.")
-    return records
+    return _df_to_records(_get_2026_punishments())
 
 
 @app.get("/load/2026/super-license", summary="Status da Superlicença (2026)")
 def get_super_license():
     """Retorna o status da Superlicença de cada piloto na temporada 2026."""
-    try:
-        df = _get_2026_super_license()
-    except ValueError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    records = _df_to_records(df)
-    if records is None:
-        raise HTTPException(status_code=500, detail="Erro ao carregar dados da Superlicença de 2026.")
-    return records
+    return _df_to_records(_get_2026_super_license())

@@ -14,11 +14,14 @@ import pandas as pd
 # Suporta tanto importação relativa de pacote quanto execução direta de script
 try:
     from .common import list_sessions, read_session_results
+    from ..errors import DataError, display_path, read_csv, require_columns, require_dir, to_int_column
 except (ImportError, ValueError):
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    if current_dir not in sys.path:
-        sys.path.insert(0, current_dir)
+    for path in (current_dir, os.path.dirname(current_dir)):
+        if path not in sys.path:
+            sys.path.insert(0, path)
     from common import list_sessions, read_session_results
+    from errors import DataError, display_path, read_csv, require_columns, require_dir, to_int_column
 
 
 def _normalize_team_name(name):
@@ -64,73 +67,63 @@ def load_teams(base_path="./files/2026", base_path_2025="./files/2025"):
 
     Returns:
         pd.DataFrame: DataFrame com as equipes de 2026 (team_id, team_name).
-                      Retorna None se houver erro ou nenhuma equipe encontrada.
 
     Raises:
-        FileNotFoundError: Se o diretório base não existir.
+        DataError: Se a pasta de 2026 não existir, não houver resultados,
+                   algum CSV de sessão for inválido ou o teams.csv de 2025 for inválido.
     """
-    if not os.path.exists(base_path):
-        raise FileNotFoundError(
-            f"Diretório de 2026 não encontrado em: {base_path}"
-        )
+    require_dir(base_path)
 
-    try:
-        # 1. Carregar mapeamento de equipes de 2025 (se existir)
-        team_id_map = {}
-        norm_to_id = {}
-        teams_2025_file = os.path.join(base_path_2025, "teams.csv")
-        if os.path.exists(teams_2025_file):
-            df_2025_teams = pd.read_csv(teams_2025_file)
-            for _, row in df_2025_teams.iterrows():
-                tid = int(row["team_id"])
-                tname = str(row["team_name"]).strip()
-                team_id_map[tname] = tid
-                norm_to_id[_normalize_team_name(tname)] = tid
+    # 1. Carregar mapeamento de equipes de 2025 (se existir)
+    team_id_map = {}
+    norm_to_id = {}
+    teams_2025_file = os.path.join(base_path_2025, "teams.csv")
+    if os.path.exists(teams_2025_file):
+        df_2025_teams = read_csv(teams_2025_file)
+        require_columns(df_2025_teams, ["team_id", "team_name"], teams_2025_file)
+        df_2025_teams["team_id"] = to_int_column(df_2025_teams, "team_id", teams_2025_file)
+        for _, row in df_2025_teams.iterrows():
+            tid = int(row["team_id"])
+            tname = str(row["team_name"]).strip()
+            team_id_map[tname] = tid
+            norm_to_id[_normalize_team_name(tname)] = tid
 
-        max_team_id = max(team_id_map.values()) if team_id_map else 0
+    max_team_id = max(team_id_map.values()) if team_id_map else 0
 
-        # 2. Extrair equipes únicas presentes nos arquivos de 2026
-        teams_found = set()
+    # 2. Extrair equipes únicas presentes nos arquivos de 2026
+    teams_found = set()
 
-        for session in list_sessions(base_path):
-            df_session = read_session_results(session["file_path"])
-            if df_session is not None and "Equipe" in df_session.columns:
-                for team in df_session["Equipe"].dropna():
-                    team_clean = str(team).strip()
-                    if team_clean:
-                        teams_found.add(team_clean)
+    for session in list_sessions(base_path):
+        df_session = read_session_results(session["file_path"])
+        if df_session is not None:
+            teams_found.update(df_session["Equipe"].astype(str).str.strip())
 
-        if not teams_found:
-            print("Nenhuma equipe encontrada nos arquivos de 2026.")
-            return None
+    if not teams_found:
+        raise DataError(f"Nenhum resultado encontrado nos CSVs de {display_path(base_path)}.")
 
-        # 3. Mapear team_id mantendo consistência com 2025
-        rows = []
-        for team_name in sorted(list(teams_found)):
-            norm = _normalize_team_name(team_name)
-            if team_name in team_id_map:
-                tid = team_id_map[team_name]
-            elif norm in norm_to_id:
-                tid = norm_to_id[norm]
-            else:
-                max_team_id += 1
-                tid = max_team_id
-                team_id_map[team_name] = tid
-                norm_to_id[norm] = tid
+    # 3. Mapear team_id mantendo consistência com 2025
+    rows = []
+    for team_name in sorted(list(teams_found)):
+        norm = _normalize_team_name(team_name)
+        if team_name in team_id_map:
+            tid = team_id_map[team_name]
+        elif norm in norm_to_id:
+            tid = norm_to_id[norm]
+        else:
+            max_team_id += 1
+            tid = max_team_id
+            team_id_map[team_name] = tid
+            norm_to_id[norm] = tid
 
-            rows.append({
-                "team_id": tid,
-                "team_name": team_name
-            })
+        rows.append({
+            "team_id": tid,
+            "team_name": team_name
+        })
 
-        df_teams = pd.DataFrame(rows).sort_values("team_id").reset_index(drop=True)
-        df_teams["team_id"] = df_teams["team_id"].astype(int)
+    df_teams = pd.DataFrame(rows).sort_values("team_id").reset_index(drop=True)
+    df_teams["team_id"] = df_teams["team_id"].astype(int)
 
-        return df_teams
-
-    except Exception as e:
-        print(f"Erro ao extrair equipes de 2026 em {base_path}: {e}")
-        return None
+    return df_teams
 
 
 # Alias para retrocompatibilidade

@@ -6,7 +6,16 @@ Este módulo lê o arquivo CSV das corridas (races.csv) e retorna um DataFrame s
 """
 
 import os
-import pandas as pd
+import sys
+
+# Suporta tanto importação relativa de pacote quanto execução direta de script
+try:
+    from ..errors import read_csv, require_columns, to_int_column
+except (ImportError, ValueError):
+    scripts_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    from errors import read_csv, require_columns, to_int_column
 
 
 def load_races(base_path="./files/2025"):
@@ -26,28 +35,17 @@ def load_races(base_path="./files/2025"):
 
     Returns:
         pd.DataFrame: DataFrame com os dados das corridas de 2025.
-                      Retorna None se houver erro ao ler o arquivo.
 
     Raises:
-        FileNotFoundError: Se a diretória base não existir.
-        pd.errors.EmptyDataError: Se o arquivo estiver vazio.
+        DataError: Se o arquivo não existir, faltar coluna obrigatória ou houver ID inválido.
     """
     races_file = f"{base_path}/races.csv"
 
-    if not os.path.exists(races_file):
-        raise FileNotFoundError(
-            f"Arquivo de corridas não encontrado em: {races_file}"
-        )
+    df_races = read_csv(races_file)
+    require_columns(df_races, ["race_id", "race_name", "race_date", "race_location", "is_sprint"], races_file)
+    df_races["race_id"] = to_int_column(df_races, "race_id", races_file)
 
-    try:
-        df_races = pd.read_csv(races_file)
-        df_races["race_id"] = df_races["race_id"].astype(int)
-
-        return df_races
-
-    except Exception as e:
-        print(f"Erro ao ler {races_file}: {e}")
-        return None
+    return df_races
 
 
 # Alias para retrocompatibilidade

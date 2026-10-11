@@ -67,58 +67,48 @@ def calculate_super_license(
 
     Returns:
         pd.DataFrame: Tabela de controle da Superlicença.
+
+    Raises:
+        DataError: Se os dados de 2026 ou o arquivo de punições forem inválidos.
     """
-    try:
-        df_drivers = load_drivers(base_path=base_path_2026, base_path_2025=base_path_2025)
-        df_teams = load_teams(base_path=base_path_2026, base_path_2025=base_path_2025)
-        df_punishments = load_punishments(base_path=base_path_sl, season_year=2026)
+    df_drivers = load_drivers(base_path=base_path_2026, base_path_2025=base_path_2025)
+    df_teams = load_teams(base_path=base_path_2026, base_path_2025=base_path_2025)
+    df_punishments = load_punishments(base_path=base_path_sl, season_year=2026)
 
-        if df_drivers is None:
-            return None
+    # 1. Totalizar deduções por piloto
+    if not df_punishments.empty:
+        deductions = df_punishments.groupby("driver_id").agg(
+            deducted_points=("deduction_points", "sum"),
+            punishments_count=("deduction_points", "count")
+        ).reset_index()
+    else:
+        deductions = pd.DataFrame(columns=["driver_id", "deducted_points", "punishments_count"])
 
-        # 1. Totalizar deduções por piloto
-        if df_punishments is not None and not df_punishments.empty:
-            deductions = df_punishments.groupby("driver_id").agg(
-                deducted_points=("deduction_points", "sum"),
-                punishments_count=("deduction_points", "count")
-            ).reset_index()
-        else:
-            deductions = pd.DataFrame(columns=["driver_id", "deducted_points", "punishments_count"])
+    # 2. Cruzar com a lista completa de pilotos de 2026
+    df_sl = df_drivers.merge(deductions, on="driver_id", how="left")
+    df_sl["deducted_points"] = df_sl["deducted_points"].fillna(0).astype(int)
+    df_sl["punishments_count"] = df_sl["punishments_count"].fillna(0).astype(int)
+    df_sl["initial_points"] = int(initial_points)
+    df_sl["remaining_points"] = df_sl["initial_points"] - df_sl["deducted_points"]
 
-        # 2. Cruzar com a lista completa de pilotos de 2026
-        df_sl = df_drivers.merge(deductions, on="driver_id", how="left")
-        df_sl["deducted_points"] = df_sl["deducted_points"].fillna(0).astype(int)
-        df_sl["punishments_count"] = df_sl["punishments_count"].fillna(0).astype(int)
-        df_sl["initial_points"] = int(initial_points)
-        df_sl["remaining_points"] = df_sl["initial_points"] - df_sl["deducted_points"]
+    # 3. Vincular dados de equipe
+    df_sl = df_sl.merge(df_teams[["team_id", "team_name"]], on="team_id", how="left")
 
-        # 3. Vincular dados de equipe
-        if df_teams is not None:
-            df_sl = df_sl.merge(df_teams[["team_id", "team_name"]], on="team_id", how="left")
-        else:
-            df_sl["team_name"] = "N/A"
+    # 4. Determinar status disciplinar
+    df_sl["status"] = df_sl["remaining_points"].apply(_get_license_status)
 
-        # 4. Determinar status disciplinar
-        df_sl["status"] = df_sl["remaining_points"].apply(_get_license_status)
+    # 5. Ordenar por pilotos mais penalizados primeiro, depois por ID
+    df_sl = df_sl.sort_values(
+        by=["remaining_points", "deducted_points", "driver_id"],
+        ascending=[True, False, True]
+    ).reset_index(drop=True)
 
-        # 5. Ordenar por pilotos mais penalizados primeiro, depois por ID
-        df_sl = df_sl.sort_values(
-            by=["remaining_points", "deducted_points", "driver_id"],
-            ascending=[True, False, True]
-        ).reset_index(drop=True)
-
-        cols = [
-            "driver_id", "driver_name", "team_id", "team_name",
-            "initial_points", "deducted_points", "remaining_points",
-            "punishments_count", "status"
-        ]
-        return df_sl[cols]
-
-    except ValueError:
-        raise
-    except Exception as e:
-        print(f"Erro ao calcular a Superlicenca de 2026: {e}")
-        return None
+    cols = [
+        "driver_id", "driver_name", "team_id", "team_name",
+        "initial_points", "deducted_points", "remaining_points",
+        "punishments_count", "status"
+    ]
+    return df_sl[cols]
 
 
 # Alias para retrocompatibilidade

@@ -54,6 +54,12 @@ Os dados sao lidos dos CSVs em `files/` e guardados em cache. O cache e invalida
 
 Isso vale para qualquer arquivo em `files/` (2025, 2026 e `super_license`). Mudancas no codigo Python (`main.py` ou `scripts/`) ainda exigem reiniciar o servidor, ou usar `--reload`.
 
+Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor invalido), os endpoints que dependem dele retornam HTTP 500 com a causa em `detail`, indicando o arquivo e a linha a corrigir. Por exemplo:
+
+```json
+{"detail": "2026/japao_race_20260323.csv, linha 2: coluna 'Grid' com valor 'X' (esperado um número inteiro)."}
+```
+
 ## Adicionando uma Nova Corrida (2026)
 
 1. Salve o CSV da sessao em `files/2026/` seguindo o padrao de nome:

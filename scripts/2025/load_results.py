@@ -6,7 +6,16 @@ Este módulo lê o arquivo CSV dos resultados (results.csv) e retorna um DataFra
 """
 
 import os
-import pandas as pd
+import sys
+
+# Suporta tanto importação relativa de pacote quanto execução direta de script
+try:
+    from ..errors import read_csv, require_columns, to_int_column
+except (ImportError, ValueError):
+    scripts_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    from errors import read_csv, require_columns, to_int_column
 
 
 def load_results(base_path="./files/2025"):
@@ -28,35 +37,25 @@ def load_results(base_path="./files/2025"):
 
     Returns:
         pd.DataFrame: DataFrame com os resultados das corridas de 2025.
-                      Retorna None se houver erro ao ler o arquivo.
 
     Raises:
-        FileNotFoundError: Se a diretória base não existir.
-        pd.errors.EmptyDataError: Se o arquivo estiver vazio.
+        DataError: Se o arquivo não existir, faltar coluna obrigatória ou houver ID inválido.
     """
     results_file = f"{base_path}/results.csv"
 
-    if not os.path.exists(results_file):
-        raise FileNotFoundError(
-            f"Arquivo de resultados não encontrado em: {results_file}"
-        )
+    df_results = read_csv(results_file)
+    require_columns(df_results, [
+        "race_id", "driver_id", "team_id", "driver_start_position",
+        "driver_final_position", "grid_result", "driver_fastest_lap"
+    ], results_file)
+    df_results["race_id"] = to_int_column(df_results, "race_id", results_file)
+    df_results["driver_id"] = to_int_column(df_results, "driver_id", results_file)
+    df_results["team_id"] = to_int_column(df_results, "team_id", results_file)
+    df_results["driver_start_position"] = to_int_column(df_results, "driver_start_position", results_file)
+    df_results["driver_final_position"] = to_int_column(df_results, "driver_final_position", results_file)
+    df_results["grid_result"] = to_int_column(df_results, "grid_result", results_file)
 
-    try:
-        df_results = pd.read_csv(results_file)
-
-        df_results["race_id"] = df_results["race_id"].astype(int)
-        df_results["driver_id"] = df_results["driver_id"].astype(int)
-        df_results["team_id"] = df_results["team_id"].astype(int)
-
-        df_results["driver_start_position"] = df_results["driver_start_position"].astype(int)
-        df_results["driver_final_position"] = df_results["driver_final_position"].astype(int)
-        df_results["grid_result"] = df_results["grid_result"].astype(int)
-
-        return df_results
-
-    except Exception as e:
-        print(f"Erro ao ler {results_file}: {e}")
-        return None
+    return df_results
 
 
 # Alias para retrocompatibilidade

@@ -13,11 +13,14 @@ import pandas as pd
 # Suporta tanto importação relativa de pacote quanto execução direta de script
 try:
     from .common import list_sessions
+    from ..errors import DataError, display_path, read_csv, require_columns, require_dir, to_int_column
 except (ImportError, ValueError):
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    if current_dir not in sys.path:
-        sys.path.insert(0, current_dir)
+    for path in (current_dir, os.path.dirname(current_dir)):
+        if path not in sys.path:
+            sys.path.insert(0, path)
     from common import list_sessions
+    from errors import DataError, display_path, read_csv, require_columns, require_dir, to_int_column
 
 
 def load_races(base_path="./files/2026", base_path_2025="./files/2025"):
@@ -40,62 +43,57 @@ def load_races(base_path="./files/2026", base_path_2025="./files/2025"):
 
     Returns:
         pd.DataFrame: DataFrame com as corridas de 2026.
-                      Retorna None se houver erro ao carregar os dados.
 
     Raises:
-        FileNotFoundError: Se o diretório base de 2026 não existir.
+        DataError: Se a pasta de 2026 não existir, não houver sessões ou o races.csv de 2025 for inválido.
     """
-    if not os.path.exists(base_path):
-        raise FileNotFoundError(
-            f"Diretório de 2026 não encontrado em: {base_path}"
+    require_dir(base_path)
+
+    # 1. Carregar mapeamento canônico de 2025
+    canonical_map = {}
+    max_canonical_id = 0
+    races_2025_file = os.path.join(base_path_2025, "races.csv")
+    if os.path.exists(races_2025_file):
+        df_2025 = read_csv(races_2025_file)
+        require_columns(df_2025, ["race_id", "race_name", "is_sprint"], races_2025_file)
+        df_2025["race_id"] = to_int_column(df_2025, "race_id", races_2025_file)
+        for _, row in df_2025.iterrows():
+            rid = int(row["race_id"])
+            rname = str(row["race_name"]).strip()
+            sprint = bool(row["is_sprint"])
+            canonical_map[(rname.lower(), sprint)] = rid
+            if rid > max_canonical_id:
+                max_canonical_id = rid
+
+    # 2. Identificar as sessões de 2026, já em ordem cronológica
+    sessions = list_sessions(base_path)
+    if not sessions:
+        raise DataError(
+            f"Nenhuma sessão encontrada em {display_path(base_path)} "
+            "(nome esperado: {local}_{race|sprint}_{YYYYMMDD}.csv)."
         )
 
-    try:
-        # 1. Carregar mapeamento canônico de 2025
-        canonical_map = {}
-        max_canonical_id = 0
-        races_2025_file = os.path.join(base_path_2025, "races.csv")
-        if os.path.exists(races_2025_file):
-            df_2025 = pd.read_csv(races_2025_file)
-            for _, row in df_2025.iterrows():
-                rid = int(row["race_id"])
-                rname = str(row["race_name"]).strip()
-                sprint = bool(row["is_sprint"])
-                canonical_map[(rname.lower(), sprint)] = rid
-                if rid > max_canonical_id:
-                    max_canonical_id = rid
+    # 3. Atribuir IDs canônicos
+    parsed_races = []
+    for session in sessions:
+        key = (session["race_name"].lower(), session["is_sprint"])
+        if key not in canonical_map:
+            max_canonical_id += 1
+            canonical_map[key] = max_canonical_id
 
-        # 2. Identificar as sessões de 2026, já em ordem cronológica
-        sessions = list_sessions(base_path)
-        if not sessions:
-            print("Nenhuma corrida encontrada nos arquivos de 2026.")
-            return None
+        parsed_races.append({
+            "race_id": canonical_map[key],
+            "race_name": session["race_name"],
+            "race_date": session["race_date"],
+            "race_location": session["race_location"],
+            "is_sprint": session["is_sprint"]
+        })
 
-        # 3. Atribuir IDs canônicos
-        parsed_races = []
-        for session in sessions:
-            key = (session["race_name"].lower(), session["is_sprint"])
-            if key not in canonical_map:
-                max_canonical_id += 1
-                canonical_map[key] = max_canonical_id
+    df_races = pd.DataFrame(parsed_races)
+    df_races["race_id"] = df_races["race_id"].astype(int)
+    df_races["is_sprint"] = df_races["is_sprint"].astype(bool)
 
-            parsed_races.append({
-                "race_id": canonical_map[key],
-                "race_name": session["race_name"],
-                "race_date": session["race_date"],
-                "race_location": session["race_location"],
-                "is_sprint": session["is_sprint"]
-            })
-
-        df_races = pd.DataFrame(parsed_races)
-        df_races["race_id"] = df_races["race_id"].astype(int)
-        df_races["is_sprint"] = df_races["is_sprint"].astype(bool)
-
-        return df_races
-
-    except Exception as e:
-        print(f"Erro ao extrair corridas de 2026 em {base_path}: {e}")
-        return None
+    return df_races
 
 
 # Alias para retrocompatibilidade

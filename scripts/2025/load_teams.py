@@ -6,7 +6,16 @@ Este módulo lê o arquivo CSV das equipes (teams.csv) e retorna um DataFrame si
 """
 
 import os
-import pandas as pd
+import sys
+
+# Suporta tanto importação relativa de pacote quanto execução direta de script
+try:
+    from ..errors import read_csv, require_columns, to_int_column
+except (ImportError, ValueError):
+    scripts_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    from errors import read_csv, require_columns, to_int_column
 
 
 def load_teams(base_path="./files/2025"):
@@ -23,28 +32,17 @@ def load_teams(base_path="./files/2025"):
 
     Returns:
         pd.DataFrame: DataFrame com os dados das equipes de 2025.
-                      Retorna None se houver erro ao ler o arquivo.
 
     Raises:
-        FileNotFoundError: Se a diretória base não existir.
-        pd.errors.EmptyDataError: Se o arquivo estiver vazio.
+        DataError: Se o arquivo não existir, faltar coluna obrigatória ou houver ID inválido.
     """
     teams_file = f"{base_path}/teams.csv"
 
-    if not os.path.exists(teams_file):
-        raise FileNotFoundError(
-            f"Arquivo de equipes não encontrado em: {teams_file}"
-        )
+    df_teams = read_csv(teams_file)
+    require_columns(df_teams, ["team_id", "team_name"], teams_file)
+    df_teams["team_id"] = to_int_column(df_teams, "team_id", teams_file)
 
-    try:
-        df_teams = pd.read_csv(teams_file)
-        df_teams["team_id"] = df_teams["team_id"].astype(int)
-
-        return df_teams
-
-    except Exception as e:
-        print(f"Erro ao ler {teams_file}: {e}")
-        return None
+    return df_teams
 
 
 # Alias para retrocompatibilidade
