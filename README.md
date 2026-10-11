@@ -48,6 +48,19 @@ A API estara disponivel em:
 - Documentacao interativa (Swagger UI): `http://localhost:8000/docs`
 - Documentacao alternativa (ReDoc): `http://localhost:8000/redoc`
 
+## Testes
+
+Instale as dependencias de desenvolvimento e rode o `pytest` na raiz do projeto:
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+Os testes rodam sobre uma copia de `files/` em uma pasta temporaria, entao podem alterar ou quebrar CSVs sem tocar nos dados reais. Eles cobrem os endpoints, a consistencia dos dados (IDs, pontos, superlicenca), as regras de 2026 (IDs reaproveitados de 2025, equipe atual do piloto, recarga do cache) e as mensagens de erro para CSVs invalidos.
+
+Um dos testes exige que todo local de arquivo em `files/2026/` esteja no `LOCATION_MAP`. Ao adicionar um GP novo, inclua o local no mapeamento.
+
 ## Atualizacao Automatica dos Dados
 
 Os dados sao lidos dos CSVs em `files/` e guardados em cache. O cache e invalidado sozinho sempre que um CSV e adicionado, editado ou removido, entao **nao e preciso reiniciar o servidor** para ver os dados novos.
