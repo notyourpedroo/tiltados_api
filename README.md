@@ -7,9 +7,9 @@ API REST desenvolvida em FastAPI para consolidar e servir os dados das temporada
 - Python 3.11 ou superior
 - Pip (gerenciador de pacotes do Python)
 
-## Instalacao
+## Instalação
 
-1. Clone ou acesse a pasta raiz do repositorio:
+1. Clone ou acesse a pasta raiz do repositório:
 
 ```bash
 cd tiltados_api
@@ -29,13 +29,13 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-3. Instale as dependencias necessarias:
+3. Instale as dependências necessárias:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Execucao
+## Execução
 
 Para iniciar o servidor de desenvolvimento:
 
@@ -43,31 +43,31 @@ Para iniciar o servidor de desenvolvimento:
 uvicorn main:app --reload
 ```
 
-A API estara disponivel em:
-- Endereco base: `http://localhost:8000`
-- Documentacao interativa (Swagger UI): `http://localhost:8000/docs`
-- Documentacao alternativa (ReDoc): `http://localhost:8000/redoc`
+A API estará disponível em:
+- Endereço base: `http://localhost:8000`
+- Documentação interativa (Swagger UI): `http://localhost:8000/docs`
+- Documentação alternativa (ReDoc): `http://localhost:8000/redoc`
 
 ## Testes
 
-Instale as dependencias de desenvolvimento e rode o `pytest` na raiz do projeto:
+Instale as dependências de desenvolvimento e rode o `pytest` na raiz do projeto:
 
 ```bash
 pip install -r requirements-dev.txt
 pytest
 ```
 
-Os testes rodam sobre uma copia de `files/` em uma pasta temporaria, entao podem alterar ou quebrar CSVs sem tocar nos dados reais. Eles cobrem os endpoints, a consistencia dos dados (IDs, pontos, superlicenca), as regras de 2026 (IDs reaproveitados de 2025, equipe atual do piloto, recarga do cache) e as mensagens de erro para CSVs invalidos.
+Os testes rodam sobre uma cópia de `files/` em uma pasta temporária, então podem alterar ou quebrar CSVs sem tocar nos dados reais. Eles cobrem os endpoints, a consistência dos dados (IDs, pontos, superlicença), as regras de 2026 (IDs reaproveitados de 2025, equipe atual do piloto, recarga do cache) e as mensagens de erro para CSVs inválidos.
 
 Um dos testes exige que todo local de arquivo em `files/2026/` esteja no `LOCATION_MAP`. Ao adicionar um GP novo, inclua o local no mapeamento.
 
-## Atualizacao Automatica dos Dados
+## Atualização Automática dos Dados
 
-Os dados sao lidos dos CSVs em `files/` e guardados em cache. O cache e invalidado sozinho sempre que um CSV e adicionado, editado ou removido, entao **nao e preciso reiniciar o servidor** para ver os dados novos.
+Os dados são lidos dos CSVs em `files/` e guardados em cache. O cache é invalidado sozinho sempre que um CSV é adicionado, editado ou removido, então **não é preciso reiniciar o servidor** para ver os dados novos.
 
-Isso vale para qualquer arquivo em `files/` (2025, 2026 e `super_license`). Mudancas no codigo Python (`main.py` ou `scripts/`) ainda exigem reiniciar o servidor, ou usar `--reload`.
+Isso vale para qualquer arquivo em `files/` (2025, 2026 e `super_license`). Mudanças no código Python (`main.py` ou `scripts/`) ainda exigem reiniciar o servidor, ou usar `--reload`.
 
-Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor invalido), os endpoints que dependem dele retornam HTTP 500 com a causa em `detail`, indicando o arquivo e a linha a corrigir. Por exemplo:
+Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor inválido), os endpoints que dependem dele retornam HTTP 500 com a causa em `detail`, indicando o arquivo e a linha a corrigir. Por exemplo:
 
 ```json
 {"detail": "2026/japao_race_20260323.csv, linha 2: coluna 'Grid' com valor 'X' (esperado um número inteiro)."}
@@ -75,7 +75,7 @@ Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor inval
 
 ## Adicionando uma Nova Corrida (2026)
 
-1. Salve o CSV da sessao em `files/2026/` seguindo o padrao de nome:
+1. Salve o CSV da sessão em `files/2026/` seguindo o padrão de nome:
 
    ```
    {local}_{race|sprint}_{YYYYMMDD}.csv
@@ -83,50 +83,50 @@ Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor inval
 
    Exemplos: `singapura_race_20261005.csv`, `silverstone_sprint_20260728.csv`.
 
-   - `{local}` deve estar em minusculas e sem acentos. Se nao estiver no mapeamento `LOCATION_MAP` (em `scripts/2026/common.py`), o nome do GP e derivado do arquivo (ex.: `GP de Imola`) e a corrida recebe um `race_id` novo em vez de reaproveitar o de 2025. Para ter o nome oficial, adicione a entrada no mapeamento, com o nome do GP igual ao de `files/2025/races.csv`.
-   - `race` ou `sprint` define o tipo da sessao.
-   - `YYYYMMDD` e a data da sessao.
+   - `{local}` deve estar em minúsculas e sem acentos. Se não estiver no mapeamento `LOCATION_MAP` (em `scripts/2026/common.py`), o nome do GP é derivado do arquivo (ex.: `GP de Imola`) e a corrida recebe um `race_id` novo em vez de reaproveitar o de 2025. Para ter o nome oficial, adicione a entrada no mapeamento, com o nome do GP igual ao de `files/2025/races.csv`.
+   - `race` ou `sprint` define o tipo da sessão.
+   - `YYYYMMDD` é a data da sessão.
 
-2. O CSV deve ter o cabecalho e as colunas do exportado do site de resultados:
+2. O CSV deve ter o cabeçalho e as colunas do exportado do site de resultados:
 
    ```
    Pos.,Piloto,Equipe,Grid,Paradas,Melhor tempo,Tempo,Pts.,tipo de piloto
    ```
 
-   A leitura para na primeira linha em branco, na que comeca com `,,,,` ou na que comeca com `Tempo,`. Tudo que vier depois disso e ignorado.
+   A leitura para na primeira linha em branco, na que começa com `,,,,` ou na que começa com `Tempo,`. Tudo que vier depois disso é ignorado.
 
-3. Pronto. Corridas, resultados, pilotos e equipes de 2026 sao derivados da pasta `files/2026/`. Se o export vier com o nome `Pessoa` (placeholder do site) ou vazio no lugar do piloto, troque pelo nome real antes de salvar. Caso contrario, os endpoints de 2026 que dependem de pilotos retornam erro indicando o arquivo e a linha a corrigir.
+3. Pronto. Corridas, resultados, pilotos e equipes de 2026 são derivados da pasta `files/2026/`. Se o export vier com o nome `Pessoa` (placeholder do site) ou vazio no lugar do piloto, troque pelo nome real antes de salvar. Caso contrário, os endpoints de 2026 que dependem de pilotos retornam erro indicando o arquivo e a linha a corrigir.
 
-   Se a corrida tiver punicao de Superlicenca, registre tambem em `files/super_license/punishments.csv` (colunas `season_year,driver_id,race_id,deduction_points,penalty_reason`).
+   Se a corrida tiver punição de Superlicença, registre também em `files/super_license/punishments.csv` (colunas `season_year,driver_id,race_id,deduction_points,penalty_reason`).
 
-A pontuacao de cada posicao vem de `files/2026/scores.csv` (colunas `position`, `points`, `is_sprint`).
+A pontuação de cada posição vem de `files/2026/scores.csv` (colunas `position`, `points`, `is_sprint`).
 
-## Endpoints Disponiveis
+## Endpoints Disponíveis
 
-O parametro `{season}` aceita os valores `2025` ou `2026`.
+O parâmetro `{season}` aceita os valores `2025` ou `2026`.
 
-| Metodo | Endpoint | Descricao |
+| Método | Endpoint | Descrição |
 |---|---|---|
-| GET | `/` | Informacoes basicas e versao da API |
+| GET | `/` | Informações básicas e versão da API |
 | GET | `/load/{season}/drivers` | Lista de pilotos da temporada |
 | GET | `/load/{season}/teams` | Lista de equipes da temporada |
 | GET | `/load/{season}/races` | Lista de corridas e sprints da temporada |
 | GET | `/load/{season}/results` | Resultados detalhados de todas as corridas |
-| GET | `/load/{season}/standings/drivers` | Tabela de classificacao do campeonato de pilotos |
-| GET | `/load/{season}/standings/teams` | Tabela de classificacao do campeonato de construtores |
-| GET | `/load/2026/punishments` | Relatorio de punicoes da Superlicenca (2026) |
-| GET | `/load/2026/super-license` | Status e saldo de pontos da Superlicenca (2026) |
+| GET | `/load/{season}/standings/drivers` | Tabela de classificação do campeonato de pilotos |
+| GET | `/load/{season}/standings/teams` | Tabela de classificação do campeonato de construtores |
+| GET | `/load/2026/punishments` | Relatório de punições da Superlicença (2026) |
+| GET | `/load/2026/super-license` | Status e saldo de pontos da Superlicença (2026) |
 
-## Regras de Negocio
+## Regras de Negócio
 
-**Classificacao (pilotos e construtores)**
-- Pontos vem de `scores.csv`, cruzando a posicao final com o tipo da sessao (corrida ou sprint).
-- Desempate: pontos, depois vitorias em GP, depois podios.
-- `races` conta sessoes disputadas, ou seja, corridas e sprints somadas. `wins` conta apenas corridas (GP); `sprint_wins` conta apenas sprints.
+**Classificação (pilotos e construtores)**
+- Pontos vêm de `scores.csv`, cruzando a posição final com o tipo da sessão (corrida ou sprint).
+- Desempate: pontos, depois vitórias em GP, depois pódios.
+- `races` conta sessões disputadas, ou seja, corridas e sprints somadas. `wins` conta apenas corridas (GP); `sprint_wins` conta apenas sprints.
 
-**Superlicenca (2026)**
-- Cada piloto comeca com 12 pontos.
-- Cada punicao em `files/super_license/punishments.csv` deduz pontos (`deduction_points`).
+**Superlicença (2026)**
+- Cada piloto começa com 12 pontos.
+- Cada punição em `files/super_license/punishments.csv` deduz pontos (`deduction_points`).
 - Status conforme os pontos restantes:
 
 | Pontos restantes | Status |
@@ -138,9 +138,9 @@ O parametro `{season}` aceita os valores `2025` ou `2026`.
 
 ## Exemplos de Uso e Respostas
 
-Os valores abaixo sao do estado atual dos dados (temporada 2026, ate o GP de Singapura).
+Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de Singapura).
 
-### 1. Informacoes da API
+### 1. Informações da API
 `GET /`
 
 ```json
@@ -178,7 +178,7 @@ Os valores abaixo sao do estado atual dos dados (temporada 2026, ate o GP de Sin
 ]
 ```
 
-### 3. Classificacao de Pilotos
+### 3. Classificação de Pilotos
 `GET /load/2026/standings/drivers`
 
 ```json
@@ -210,7 +210,7 @@ Os valores abaixo sao do estado atual dos dados (temporada 2026, ate o GP de Sin
 ]
 ```
 
-### 4. Classificacao de Construtores
+### 4. Classificação de Construtores
 `GET /load/2026/standings/teams`
 
 ```json
@@ -234,7 +234,7 @@ Os valores abaixo sao do estado atual dos dados (temporada 2026, ate o GP de Sin
 ]
 ```
 
-### 5. Status da Superlicenca (2026)
+### 5. Status da Superlicença (2026)
 `GET /load/2026/super-license`
 
 ```json
@@ -264,7 +264,7 @@ Os valores abaixo sao do estado atual dos dados (temporada 2026, ate o GP de Sin
 ]
 ```
 
-### 6. Punicoes da Superlicenca (2026)
+### 6. Punições da Superlicença (2026)
 `GET /load/2026/punishments`
 
 ```json
@@ -296,7 +296,7 @@ Os valores abaixo sao do estado atual dos dados (temporada 2026, ate o GP de Sin
 ]
 ```
 
-Cada punicao precisa apontar para um `driver_id` e um `race_id` existentes em 2026; caso contrario, o endpoint retorna erro indicando a linha do `punishments.csv`.
+Cada punição precisa apontar para um `driver_id` e um `race_id` existentes em 2026; caso contrário, o endpoint retorna erro indicando a linha do `punishments.csv`.
 
 ## Estrutura do Projeto
 
@@ -304,12 +304,17 @@ Cada punicao precisa apontar para um `driver_id` e um `race_id` existentes em 20
 tiltados_api/
 |-- files/
 |   |-- 2025/               # CSVs consolidados da temporada 2025
-|   |-- 2026/               # CSVs de cada sessao da temporada 2026 (+ scores.csv)
-|   `-- super_license/      # Arquivo de punicoes da superlicenca
+|   |-- 2026/               # CSVs de cada sessão da temporada 2026 (+ scores.csv)
+|   `-- super_license/      # Arquivo de punições da superlicença
 |-- scripts/
-|   |-- 2025/               # Modulos de extracao e calculo de 2025
-|   `-- 2026/               # Modulos de extracao e calculo de 2026
-|-- main.py                 # Aplicacao FastAPI, cache e definicao de rotas
-|-- requirements.txt        # Dependencias do projeto
-`-- README.md               # Documentacao do projeto
+|   |-- 2025/               # Módulos de extração e cálculo de 2025
+|   |-- 2026/               # Módulos de extração e cálculo de 2026
+|   |   `-- common.py       # LOCATION_MAP, padrão de nome e leitura dos CSVs de sessão
+|   `-- errors.py           # DataError e validação dos CSVs (arquivo, coluna, valor)
+|-- tests/                  # Testes automatizados (pytest)
+|-- main.py                 # Aplicação FastAPI, cache e definição de rotas
+|-- pytest.ini              # Configuração do pytest
+|-- requirements.txt        # Dependências do projeto
+|-- requirements-dev.txt    # Dependências de desenvolvimento (testes)
+`-- README.md               # Documentação do projeto
 ```
