@@ -4,7 +4,7 @@ API REST desenvolvida em FastAPI para consolidar e servir os dados das temporada
 
 ## Requisitos
 
-- Python 3.10 ou superior
+- Python 3.11 ou superior
 - Pip (gerenciador de pacotes do Python)
 
 ## Instalacao
