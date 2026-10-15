@@ -12,8 +12,9 @@ __pycache__/
 .vscode/
 .idea/
 
-# Claude Code (preferencias pessoais)
-.claude/settings.local.json
+# Agentes de IA (configuracoes e instrucoes locais)
+AGENTS.md
+/.claude/
 
 # Pytest
 .pytest_cache/
