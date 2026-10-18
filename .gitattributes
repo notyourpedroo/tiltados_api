@@ -1,0 +1,2 @@
+# Scripts executados no servidor Linux precisam de quebra de linha LF.
+*.sh text eol=lf

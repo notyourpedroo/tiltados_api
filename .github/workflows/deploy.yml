@@ -1,0 +1,85 @@
+name: CI/CD
+
+# Pull requests: só verifica (testes).
+# Push na main (ou disparo manual): verifica, empacota e publica no servidor.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Uma publicação por vez; a seguinte espera a anterior terminar.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Testar e empacotar
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          # Mesma versão do Python do servidor.
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - run: pip install -r requirements-dev.txt
+
+      # Os testes também validam os CSVs de files/: um resultado quebrado
+      # para aqui, antes de chegar ao servidor.
+      - name: Testes
+        run: pytest
+
+      - name: Empacotar
+        if: github.event_name != 'pull_request'
+        run: tar --exclude=__pycache__ -czf release.tgz main.py scripts files requirements.txt
+
+      - uses: actions/upload-artifact@v7
+        if: github.event_name != 'pull_request'
+        with:
+          name: release
+          path: release.tgz
+          retention-days: 7
+
+  deploy:
+    name: Publicar no servidor
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    # Sem "url": o endereço do servidor fica só nos Secrets, fora do código e dos logs.
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: deploy
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+
+      - name: Configurar SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Enviar e publicar
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          NAME="$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
+          TARBALL="/tmp/tiltados-api-$NAME.tgz"
+          scp -q release.tgz "deploy@$DEPLOY_HOST:$TARBALL"
+          ssh "deploy@$DEPLOY_HOST" "bash -s -- '$TARBALL' '$NAME'" < deploy/publicar.sh
