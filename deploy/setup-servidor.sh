@@ -93,7 +93,10 @@ ConditionPathExists=$BASE/current/main.py
 [Service]
 User=$APP_USER
 WorkingDirectory=$BASE/current
-ExecStart=$BASE/current/.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+# 2 workers: o servidor tem 1 vCPU e 1 GB de RAM, dividido com o site. Cada worker
+# é um processo com pandas e cache próprios; 2 mantêm a API respondendo enquanto
+# um deles está ocupado ou reiniciando.
+ExecStart=$BASE/current/.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
 Restart=always
 RestartSec=3
 
