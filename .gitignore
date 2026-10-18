@@ -18,3 +18,20 @@ AGENTS.md
 
 # Pytest
 .pytest_cache/
+
+# Chaves e segredos (nunca versionar)
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+.env
+.env.*
+!.env.example
+
+# Pacote gerado pelo deploy
+release.tgz
+
+# Sistema operacional
+Thumbs.db
+desktop.ini
+.DS_Store
