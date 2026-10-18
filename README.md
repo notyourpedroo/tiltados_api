@@ -118,9 +118,9 @@ Cada push na `main` dispara o workflow [`.github/workflows/deploy.yml`](.github/
 
 Também dá para disparar uma publicação manual pela aba **Actions** (*Run workflow*).
 
-**Preparação do servidor (uma vez):** [`deploy/setup-servidor.sh`](deploy/setup-servidor.sh), como root. Ele usa o mesmo usuário `deploy` do tiltados_web. Move a instalação antiga para `/opt/tiltados_api_legacy`, que continua no ar como `tiltados-api-legacy.service` até a primeira publicação, e reescreve o `tiltados-api.service` para rodar a versão publicada como `deploy`, sem root. A primeira publicação desliga o serviço legado.
+**Preparação do servidor (uma vez):** [`deploy/setup-servidor.sh`](deploy/setup-servidor.sh), como root. Ele cria o usuário `deploy` (ou reaproveita, se já existir), move a instalação antiga para `/opt/tiltados_api_legacy`, que continua no ar como `tiltados-api-legacy.service` até a primeira publicação, e reescreve o `tiltados-api.service` para rodar a versão publicada como `deploy`, sem root. A primeira publicação desliga o serviço legado.
 
-**Secrets do repositório** (Settings → Secrets and variables → Actions), os mesmos do tiltados_web. O endereço do servidor fica só aqui, fora do código e dos logs:
+**Secrets do repositório** (Settings → Secrets and variables → Actions). O endereço do servidor fica só aqui, fora do código e dos logs:
 
 | Secret | Conteúdo |
 |---|---|

@@ -3,8 +3,8 @@
 #
 #   bash setup-servidor.sh ["ssh-ed25519 AAAA... github-actions-tiltados"]
 #
-# Usa o mesmo usuário "deploy" do tiltados_web. A chave pública é opcional se esse
-# usuário já existir com a chave do deploy cadastrada.
+# A chave pública é opcional se o usuário "deploy" já existir com a chave do
+# deploy cadastrada.
 #
 # O que faz:
 # - garante o usuário "deploy" e a chave pública informada;
