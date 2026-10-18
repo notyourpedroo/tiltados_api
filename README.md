@@ -180,7 +180,7 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
 ```json
 {
   "name": "Tiltados API",
-  "version": "v2.26.1010",
+  "version": "v2.26.1018",
   "seasons": [
     2025,
     2026
