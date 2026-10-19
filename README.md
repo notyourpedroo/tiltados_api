@@ -99,41 +99,9 @@ Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor invá
 
    Se a corrida tiver punição de Superlicença, registre também em `files/super_license/punishments.csv` (colunas `season_year,driver_id,race_id,deduction_points,penalty_reason`).
 
-4. Faça o commit e o push na `main`. O [deploy automático](#deploy-automático) roda os testes e publica a corrida nova no servidor em cerca de 1 a 2 minutos. Os CSVs de produção vêm sempre do Git: não edite arquivos direto no servidor, porque cada publicação substitui a pasta `files/`.
+4. Faça o commit e o push na `main`. O GitHub Actions roda os testes e publica a corrida nova no servidor em cerca de 1 a 2 minutos. Os CSVs de produção vêm sempre do Git: não edite arquivos direto no servidor, porque cada publicação substitui a pasta `files/`.
 
 A pontuação de cada posição vem de `files/2026/scores.csv` (colunas `position`, `points`, `is_sprint`).
-
-## Deploy Automático
-
-Cada push na `main` dispara o workflow [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
-
-1. **Testar e empacotar** (no GitHub): instala as dependências com Python 3.12 (a mesma versão do servidor) e roda o `pytest`. Os testes também validam os CSVs de `files/`, então um resultado com erro para aqui, sem chegar ao servidor. O pacote `release.tgz` leva só `main.py`, `scripts/`, `files/` e `requirements.txt`. Pull requests param nesta etapa, sem publicar.
-2. **Publicar no servidor**: envia o pacote por SSH (usuário `deploy`) e roda [`deploy/publicar.sh`](deploy/publicar.sh), que:
-   - extrai em `/opt/tiltados_api/releases/<data>-<commit>`;
-   - prepara o ambiente Python em `/opt/tiltados_api/venvs/`, um por versão do `requirements.txt` (publicações que só trazem CSVs novos reaproveitam o ambiente e não instalam nada);
-   - aponta o link `current` para a versão nova e reinicia o serviço `tiltados-api`;
-   - confere se a API responde (`/` e `/load/2026/standings/drivers`). Se não responder, volta sozinho para a versão anterior.
-
-   Ficam guardadas as 3 últimas versões.
-
-Também dá para disparar uma publicação manual pela aba **Actions** (*Run workflow*).
-
-**Preparação do servidor (uma vez):** [`deploy/setup-servidor.sh`](deploy/setup-servidor.sh), como root. Ele cria o usuário `deploy` (ou reaproveita, se já existir), move a instalação antiga para `/opt/tiltados_api_legacy`, que continua no ar como `tiltados-api-legacy.service` até a primeira publicação, e reescreve o `tiltados-api.service` para rodar a versão publicada como `deploy`, sem root. A primeira publicação desliga o serviço legado.
-
-**Secrets do repositório** (Settings → Secrets and variables → Actions). O endereço do servidor fica só aqui, fora do código e dos logs:
-
-| Secret | Conteúdo |
-|---|---|
-| `DEPLOY_HOST` | IP do servidor |
-| `DEPLOY_SSH_KEY` | Chave **privada** do usuário `deploy` |
-| `DEPLOY_KNOWN_HOSTS` | Linha do `ssh-keyscan -t ed25519 <ip>` (identidade do servidor) |
-
-**Voltar uma versão manualmente** (no servidor, como root):
-
-```bash
-ls -1t /opt/tiltados_api/releases
-ln -sfn /opt/tiltados_api/releases/<versao> /opt/tiltados_api/current && systemctl restart tiltados-api
-```
 
 ## Endpoints Disponíveis
 
