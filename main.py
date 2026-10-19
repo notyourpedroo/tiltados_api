@@ -222,7 +222,7 @@ def _load_data(season: str, resource: str):
 
 # ── Aplicação FastAPI ────────────────────────────────────────────────────────
 
-API_VERSION = "v2.26.1018"
+API_VERSION = "v2.26.1019"
 
 app = FastAPI(
     title="Tiltados API",
