@@ -4,3 +4,5 @@ season_year,driver_id,race_id,deduction_points,penalty_reason
 2026,2,10,2,Direção perigosa (Lentidão em trechos de velocidade – FP1 e Qualy)
 2026,8,34,3,Causou uma colisão
 2026,5,23,2,Causou uma colisão
+2026,2,23,1,Atraso no procedimento de início da sessão
+2026,3,23,2,Atraso no procedimento de início da sessão
