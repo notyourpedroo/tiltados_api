@@ -48,6 +48,46 @@ A API estará disponível em:
 - Documentação interativa (Swagger UI): `http://localhost:8000/docs`
 - Documentação alternativa (ReDoc): `http://localhost:8000/redoc`
 
+## Produção
+
+Em produção a API fica atrás do nginx, com HTTPS, no prefixo `/api`:
+
+- Endereço base: `https://<ip-do-servidor>/api`
+- Documentação: `https://<ip-do-servidor>/api/docs`
+
+As rotas são as mesmas do desenvolvimento, por exemplo `https://<ip-do-servidor>/api/load/2026/teams`.
+O uvicorn escuta só em `127.0.0.1:8000` (veja `deploy/setup-servidor.sh`), então a porta 8000
+não é acessível de fora. O nginx limita cada IP a 10 requisições por segundo, com rajadas de até 60;
+acima disso responde `429`.
+
+A configuração do nginx não fica neste repositório. No servidor, o trecho que publica a API fica no
+`server` da porta 443 (`/etc/nginx/sites-available/tiltados-app`):
+
+```nginx
+location /api/ {
+    limit_req zone=tiltados_api burst=60 nodelay;
+    access_log /var/log/nginx/tiltados-api.access.log;
+
+    proxy_pass http://127.0.0.1:8000/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location = /api {
+    return 301 /api/;
+}
+```
+
+E a zona de limite, em `/etc/nginx/conf.d/tiltados-api.conf`:
+
+```nginx
+limit_req_zone $binary_remote_addr zone=tiltados_api:10m rate=10r/s;
+limit_req_status 429;
+```
+
 ## Testes
 
 Instale as dependências de desenvolvimento e rode o `pytest` na raiz do projeto:
