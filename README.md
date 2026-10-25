@@ -161,6 +161,7 @@ O parâmetro `{season}` aceita os valores `2025` ou `2026`.
 | GET | `/load/2026/punishments` | Relatório de punições da Superlicença (2026) |
 | GET | `/load/2026/super-license` | Status e saldo de pontos da Superlicença (2026) |
 | GET | `/load/2026/prediction/drivers` | Situação no título e Chance de título dos pilotos (2026) |
+| GET | `/load/2026/prediction/teams` | Situação no título e Chance de título dos construtores (2026) |
 
 ## Regras de Negócio
 
@@ -183,7 +184,7 @@ O parâmetro `{season}` aceita os valores `2025` ou `2026`.
 
 **Chance de título (2026)**
 - O que falta disputar vem do Calendário (`files/2026/calendar.csv`): uma Sessão sem CSV de resultado é pendente, mesmo que a data já tenha passado.
-- Pontos máximos (`max_points`): pontos atuais + os pontos do 1º lugar em cada Sessão pendente.
+- Pontos máximos (`max_points`): pontos atuais + os pontos do 1º lugar em cada Sessão pendente. Para equipes, do 1º e do 2º lugar (só do 1º se a equipe tiver um único piloto).
 - Status no título:
 
 | Situação | Status |
@@ -194,6 +195,7 @@ O parâmetro `{season}` aceita os valores `2025` ou `2026`.
 
 - Sem Sessões pendentes, o 1º da classificação é `Campeao` e os demais, `Eliminado`.
 - A Chance de título (`championship_probability`, em %) vem de 10.000 simulações das Sessões pendentes. Em cada Sessão, cada piloto sorteia uma das posições que já fez em Corridas de 2026, e a ordem de chegada é a ordenação desses sorteios (posições iguais são desempatadas por sorteio). O campeão de cada simulação sai por pontos, depois vitórias em GP, depois pódios, depois sorteio.
+- No campeonato de construtores, os pontos simulados de cada piloto vão para a equipe atual dele (a da sessão mais recente).
 - `Eliminado` sempre tem 0% e `Campeao` sempre 100%. `expected_points` é a média dos pontos finais nas simulações.
 - A semente da simulação vem dos dados: enquanto os CSVs não mudam, a resposta é sempre a mesma.
 
@@ -406,6 +408,36 @@ Valores após o GP dos Estados Unidos, com 5 Corridas pendentes (os 3 primeiros 
 ```
 
 Yohan ainda está `Na disputa` pela matemática, mas aparece com 0% porque, nas Corridas de 2026, Matheus nunca terminou abaixo do 6º lugar. Pontuando em todas as 5 Corridas, Matheus perde no máximo 17 pontos por Corrida para Yohan (25 contra 8), ou 85 no total, menos que os 89 de vantagem. Yohan só seria campeão com Matheus fora dos pontos em alguma Corrida, o que praticamente não acontece nos sorteios.
+
+### 8. Chance de Título dos Construtores (2026)
+`GET /load/2026/prediction/teams`
+
+Valores após o GP dos Estados Unidos (os 2 primeiros da lista):
+
+```json
+[
+  {
+    "position": 1,
+    "team_id": 7,
+    "team_name": "Visa Cash App Racing Bulls",
+    "points": 588,
+    "max_points": 803,
+    "status": "Na disputa",
+    "championship_probability": 100.0,
+    "expected_points": 741.3
+  },
+  {
+    "position": 2,
+    "team_id": 1,
+    "team_name": "Red Bull",
+    "points": 476,
+    "max_points": 691,
+    "status": "Na disputa",
+    "championship_probability": 0.0,
+    "expected_points": 576.8
+  }
+]
+```
 
 ## Estrutura do Projeto
 

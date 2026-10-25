@@ -192,6 +192,11 @@ def _get_2026_driver_prediction():
     return calculate_2026_prediction(type="drivers", base_path=_files_path(2026), base_path_2025=_files_path_2025())
 
 
+@_cached_until_files_change
+def _get_2026_team_prediction():
+    return calculate_2026_prediction(type="teams", base_path=_files_path(2026), base_path_2025=_files_path_2025())
+
+
 # Dispatcher por temporada
 _LOADERS = {
     "2025": {
@@ -318,3 +323,9 @@ def get_super_license():
 def get_driver_prediction():
     """Retorna a situação no título e a Chance de título de cada piloto, simulando as Sessões pendentes de 2026."""
     return _df_to_records(_get_2026_driver_prediction())
+
+
+@app.get("/load/2026/prediction/teams", summary="Chance de título dos construtores (2026)")
+def get_team_prediction():
+    """Retorna a situação no título e a Chance de título de cada equipe, simulando as Sessões pendentes de 2026."""
+    return _df_to_records(_get_2026_team_prediction())

@@ -10,6 +10,7 @@ ENDPOINTS = [f"/load/{season}/{resource}" for season in SEASONS for resource in 
     "/load/2026/punishments",
     "/load/2026/super-license",
     "/load/2026/prediction/drivers",
+    "/load/2026/prediction/teams",
 ]
 
 

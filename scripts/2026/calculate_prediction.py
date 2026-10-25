@@ -18,7 +18,7 @@ import pandas as pd
 
 # Suporta tanto importação relativa de pacote quanto execução direta de script
 try:
-    from .calculate_standings import calculate_driver_standings
+    from .calculate_standings import calculate_driver_standings, calculate_team_standings
     from .load_calendar import load_calendar
     from .load_races import load_races
     from .load_results import load_results
@@ -28,7 +28,7 @@ except (ImportError, ValueError):
     for path in (current_dir, os.path.dirname(current_dir)):
         if path not in sys.path:
             sys.path.insert(0, path)
-    from calculate_standings import calculate_driver_standings
+    from calculate_standings import calculate_driver_standings, calculate_team_standings
     from load_calendar import load_calendar
     from load_races import load_races
     from load_results import load_results
@@ -122,20 +122,13 @@ def _finish(df, probability, expected_points, sort_key):
     return df
 
 
-def calculate_driver_prediction(
-    base_path="./files/2026", base_path_2025="./files/2025", n_simulations=N_SIMULATIONS
-):
+def _simulate_season(base_path, base_path_2025, n_simulations):
     """
-    Calcula a Chance de título de cada piloto de 2026.
+    Simula as Sessões pendentes para os pilotos da classificação atual.
 
-    Colunas do DataFrame retornado:
-    - position: Posição nesta lista (ordenada pela Chance de título)
-    - driver_id, driver_name, team_id, team_name: Piloto e equipe atual
-    - points: Pontos atuais
-    - max_points: Pontos máximos (atuais + tudo que ainda dá para ganhar)
-    - status: Campeao, Na disputa ou Eliminado
-    - championship_probability: Chance de título, em porcentagem (1 casa)
-    - expected_points: Média dos pontos finais nas simulações
+    Retorna um dict com a classificação de pilotos (`standings`), os tipos das Sessões
+    pendentes (`pending`), as tabelas de pontos (`tables`), o gerador aleatório já
+    usado (`rng`) e, por simulação e piloto, `sim_points`, `sim_wins` e `sim_podiums`.
     """
     calendar = load_calendar(base_path=base_path)
     standings = calculate_driver_standings(base_path=base_path, base_path_2025=base_path_2025)
@@ -158,9 +151,38 @@ def calculate_driver_prediction(
     rng = np.random.default_rng(zlib.crc32(seed_data))
 
     sim_points, sim_wins, sim_podiums = _simulate_pending_sessions(histories, pending, tables, rng, n_simulations)
-    final_points = standings["points"].to_numpy() + sim_points
-    final_wins = standings["wins"].to_numpy() + sim_wins
-    final_podiums = standings["podiums"].to_numpy() + sim_podiums
+    return {
+        "standings": standings,
+        "pending": pending,
+        "tables": tables,
+        "rng": rng,
+        "sim_points": sim_points,
+        "sim_wins": sim_wins,
+        "sim_podiums": sim_podiums,
+    }
+
+
+def calculate_driver_prediction(
+    base_path="./files/2026", base_path_2025="./files/2025", n_simulations=N_SIMULATIONS
+):
+    """
+    Calcula a Chance de título de cada piloto de 2026.
+
+    Colunas do DataFrame retornado:
+    - position: Posição nesta lista (ordenada pela Chance de título)
+    - driver_id, driver_name, team_id, team_name: Piloto e equipe atual
+    - points: Pontos atuais
+    - max_points: Pontos máximos (atuais + tudo que ainda dá para ganhar)
+    - status: Campeao, Na disputa ou Eliminado
+    - championship_probability: Chance de título, em porcentagem (1 casa)
+    - expected_points: Média dos pontos finais nas simulações
+    """
+    season = _simulate_season(base_path, base_path_2025, n_simulations)
+    standings, pending, tables = season["standings"], season["pending"], season["tables"]
+
+    final_points = standings["points"].to_numpy() + season["sim_points"]
+    final_wins = standings["wins"].to_numpy() + season["sim_wins"]
+    final_podiums = standings["podiums"].to_numpy() + season["sim_podiums"]
 
     df = standings[["position", "driver_id", "driver_name", "team_id", "team_name", "points"]].copy()
     df["max_points"] = df["points"] + int(sum(tables[is_sprint][1] for is_sprint in pending))
@@ -169,7 +191,7 @@ def calculate_driver_prediction(
     )
     df = _finish(
         df,
-        _championship_probability(final_points, final_wins, final_podiums, rng),
+        _championship_probability(final_points, final_wins, final_podiums, season["rng"]),
         final_points.mean(axis=0),
         sort_key="position",
     )
@@ -181,21 +203,82 @@ def calculate_driver_prediction(
     return df[cols]
 
 
+def calculate_team_prediction(
+    base_path="./files/2026", base_path_2025="./files/2025", n_simulations=N_SIMULATIONS
+):
+    """
+    Calcula a Chance de título de cada equipe no campeonato de construtores de 2026.
+
+    Os pontos simulados de cada piloto vão para a equipe atual dele.
+
+    Colunas do DataFrame retornado:
+    - position: Posição nesta lista (ordenada pela Chance de título)
+    - team_id, team_name: Equipe
+    - points: Pontos atuais
+    - max_points: Pontos máximos (atuais + 1º e 2º lugar de cada Sessão pendente,
+                  ou só o 1º se a equipe tiver um único piloto)
+    - status: Campeao, Na disputa ou Eliminado
+    - championship_probability: Chance de título, em porcentagem (1 casa)
+    - expected_points: Média dos pontos finais nas simulações
+    """
+    season = _simulate_season(base_path, base_path_2025, n_simulations)
+    pending, tables = season["pending"], season["tables"]
+    team_standings = calculate_team_standings(base_path=base_path, base_path_2025=base_path_2025)
+    current_team = season["standings"]["team_id"].to_numpy()
+
+    # Somar os resultados simulados dos pilotos de cada equipe atual
+    final = {"points": [], "wins": [], "podiums": []}
+    max_points = []
+    for team_id, points, wins, podiums in zip(
+        team_standings["team_id"], team_standings["points"], team_standings["wins"], team_standings["podiums"]
+    ):
+        drivers = current_team == team_id
+        final["points"].append(points + season["sim_points"][:, drivers].sum(axis=1))
+        final["wins"].append(wins + season["sim_wins"][:, drivers].sum(axis=1))
+        final["podiums"].append(podiums + season["sim_podiums"][:, drivers].sum(axis=1))
+
+        best_positions = min(int(drivers.sum()), 2)
+        max_points.append(points + int(sum(tables[s][1:best_positions + 1].sum() for s in pending)))
+
+    final_points, final_wins, final_podiums = (np.column_stack(final[key]) for key in ("points", "wins", "podiums"))
+
+    df = team_standings[["position", "team_id", "team_name", "points"]].copy()
+    df["max_points"] = max_points
+    df["status"] = _title_status(
+        df["points"].to_numpy(), df["max_points"].to_numpy(), bool(pending), df["position"].to_numpy()
+    )
+    df = _finish(
+        df,
+        _championship_probability(final_points, final_wins, final_podiums, season["rng"]),
+        final_points.mean(axis=0),
+        sort_key="position",
+    )
+
+    cols = ["position", "team_id", "team_name", "points", "max_points", "status",
+            "championship_probability", "expected_points"]
+    return df[cols]
+
+
 def calculate_prediction(type="drivers", base_path="./files/2026", base_path_2025="./files/2025"):
     """
     Função principal da Chance de título de 2026.
 
     Args:
-        type (str): 'drivers' para pilotos.
+        type (str): 'drivers' para pilotos ou 'teams'/'constructors' para equipes.
         base_path (str): Caminho base dos arquivos de 2026.
         base_path_2025 (str): Caminho base dos arquivos de 2025.
 
     Returns:
         pd.DataFrame: Chance de título solicitada.
     """
+    if type in ["teams", "constructors"]:
+        return calculate_team_prediction(base_path=base_path, base_path_2025=base_path_2025)
     return calculate_driver_prediction(base_path=base_path, base_path_2025=base_path_2025)
 
 
 if __name__ == "__main__":
     print("\n=== CHANCE DE TITULO DE PILOTOS - TEMPORADA 2026 ===")
     print(calculate_driver_prediction().to_string(index=False))
+
+    print("\n=== CHANCE DE TITULO DE CONSTRUTORES - TEMPORADA 2026 ===")
+    print(calculate_team_prediction().to_string(index=False))

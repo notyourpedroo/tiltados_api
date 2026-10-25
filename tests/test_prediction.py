@@ -22,14 +22,23 @@ def calendar_rows(data_dir):
         return [(r["local"], r["tipo"], r["data"]) for r in csv.DictReader(f)]
 
 
-def season(data_dir, races, pending):
-    """Temporada sintética: `races` é uma lista de ordens de chegada; `pending` Corridas sem resultado."""
+def season(data_dir, races, pending, teams=None):
+    """
+    Temporada sintética: `races` é uma lista de ordens de chegada; `pending` Corridas sem resultado.
+    `teams` diz a equipe de cada piloto por Corrida (dict piloto -> equipe ou lista de equipes).
+    """
     reset_2026_season(data_dir)
+    teams = teams or {}
+
+    def team_of(driver, race_index):
+        team = teams.get(driver, TEAM)
+        return team[race_index] if isinstance(team, list) else team
+
     played = []
     for i, finishing_order in enumerate(races, start=1):
         local = f"etapa{'abcdefghij'[i - 1]}"
         write_session(data_dir, f"{local}_race_2026030{i}.csv",
-                      [(pos, driver, TEAM, pos) for pos, driver in enumerate(finishing_order, start=1)])
+                      [(pos, driver, team_of(driver, i - 1), pos) for pos, driver in enumerate(finishing_order, start=1)])
         played.append((local, "race", f"2026-03-0{i}"))
     write_calendar(data_dir, played + [(f"futura{'abcdefghij'[i]}", "race", f"2026-12-0{i + 1}") for i in range(pending)])
 
@@ -116,3 +125,70 @@ def test_resultado_novo_atualiza_a_chance_de_titulo(client, data_dir):
     assert after["Yohan"]["points"] == before["Yohan"]["points"] + 25
     assert after["Matheus"]["points"] == before["Matheus"]["points"]
     assert after["Matheus"]["max_points"] == before["Matheus"]["max_points"] - 25
+
+
+TEAMS = "/load/2026/prediction/teams"
+
+TEAM_FIELDS = {
+    "position", "team_id", "team_name", "points", "max_points", "status",
+    "championship_probability", "expected_points",
+}
+
+
+def test_equipes_trazem_situacao_e_chance_de_titulo(client):
+    response = client.get(TEAMS)
+    assert response.status_code == 200, response.text
+    rows = by_name(response.json(), key="team_name")
+
+    assert all(set(row) == TEAM_FIELDS for row in rows.values())
+    # Racing Bulls 588 x Red Bull 476, com 5 x (25 + 18) = 215 pts em jogo
+    assert rows["Visa Cash App Racing Bulls"]["max_points"] == 588 + 215
+    assert rows["Red Bull"]["max_points"] == 476 + 215
+    assert {name for name, row in rows.items() if row["status"] == "Na disputa"} == {
+        "Visa Cash App Racing Bulls", "Red Bull"}
+    for name in ("Scuderia Ferrari HP", "Mercedes-AMG Petronas"):
+        assert rows[name]["status"] == "Eliminado"
+        assert rows[name]["championship_probability"] == 0
+    assert abs(sum(row["championship_probability"] for row in rows.values()) - 100) <= 0.2
+
+
+def test_equipe_com_um_unico_piloto_soma_so_o_1o_lugar(client, data_dir):
+    teams = {"Ana": "Ferrari", "Bia": "Ferrari", "Caio": "Williams"}
+    season(data_dir, [["Ana", "Bia", "Caio"]], pending=2, teams=teams)
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows["Ferrari"]["max_points"] == 25 + 18 + 2 * (25 + 18)
+    assert rows["Williams"]["max_points"] == 15 + 2 * 25
+
+
+def test_pontos_simulados_vao_para_a_equipe_atual_do_piloto(client, data_dir):
+    # Caio correu pela Williams e trocou para a Ferrari na última Corrida disputada
+    teams = {"Ana": "Mclaren", "Bia": "Williams", "Caio": ["Williams", "Ferrari"]}
+    season(data_dir, [["Ana", "Bia", "Caio"], ["Ana", "Bia", "Caio"]], pending=1, teams=teams)
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows["Williams"]["points"] == 18 + 15 + 18
+    assert rows["Ferrari"]["points"] == 15
+    # A Williams só tem a Bia daqui para frente: no máximo +25; a Ferrari soma o que o Caio fizer
+    assert rows["Williams"]["max_points"] == 51 + 25
+    assert rows["Ferrari"]["expected_points"] > rows["Ferrari"]["points"]
+
+
+def test_construtores_sem_sessoes_pendentes(client, data_dir):
+    played = [row for row in calendar_rows(data_dir) if row[0] not in
+              ("mexico", "brasil", "las_vegas", "catar", "abu_dhabi")]
+    write_calendar(data_dir, played)
+    rows = client.get(TEAMS).json()
+
+    assert rows[0]["team_name"] == "Visa Cash App Racing Bulls"
+    assert rows[0]["status"] == "Campeao" and rows[0]["championship_probability"] == 100
+    assert all(row["status"] == "Eliminado" for row in rows[1:])
+    assert all(row["max_points"] == row["points"] == row["expected_points"] for row in rows)
+
+
+def test_construtores_mesmos_dados_dao_a_mesma_resposta(client, data_dir):
+    teams = {"Ana": "Ferrari", "Bia": "Williams", "Caio": "Mclaren"}
+    season(data_dir, [["Ana", "Bia", "Caio"], ["Bia", "Caio", "Ana"]], pending=3, teams=teams)
+    first = client.get(TEAMS).json()
+    write_calendar(data_dir, calendar_rows(data_dir))
+    assert client.get(TEAMS).json() == first
