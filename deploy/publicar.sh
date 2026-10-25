@@ -16,9 +16,25 @@ BASE=/opt/tiltados_api
 SERVICE=tiltados-api
 OLD_SERVICE=tiltados-api-legacy
 KEEP=3
+# Todas as rotas da API, uma por temporada; tests/test_endpoints.py falha se faltar alguma.
 HEALTH_URLS=(
   http://127.0.0.1:8000/
+  http://127.0.0.1:8000/load/2025/drivers
+  http://127.0.0.1:8000/load/2026/drivers
+  http://127.0.0.1:8000/load/2025/teams
+  http://127.0.0.1:8000/load/2026/teams
+  http://127.0.0.1:8000/load/2025/races
+  http://127.0.0.1:8000/load/2026/races
+  http://127.0.0.1:8000/load/2025/results
+  http://127.0.0.1:8000/load/2026/results
+  http://127.0.0.1:8000/load/2025/standings/drivers
   http://127.0.0.1:8000/load/2026/standings/drivers
+  http://127.0.0.1:8000/load/2025/standings/teams
+  http://127.0.0.1:8000/load/2026/standings/teams
+  http://127.0.0.1:8000/load/2026/punishments
+  http://127.0.0.1:8000/load/2026/super-license
+  http://127.0.0.1:8000/load/2026/prediction/drivers
+  http://127.0.0.1:8000/load/2026/prediction/teams
 )
 SYSTEMCTL="$(command -v systemctl)"
 
@@ -94,7 +110,7 @@ fi
 
 sudo "$SYSTEMCTL" restart "$SERVICE"
 
-echo "==> Conferindo ${HEALTH_URLS[*]}"
+echo "==> Conferindo as ${#HEALTH_URLS[@]} rotas da API"
 if healthy; then
   echo "==> No ar: $NAME"
 else

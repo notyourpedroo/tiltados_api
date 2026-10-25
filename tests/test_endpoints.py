@@ -1,17 +1,24 @@
 """Respostas básicas e consistência dos endpoints com os dados reais."""
 
+from pathlib import Path
+
 import pytest
+from fastapi.routing import APIRoute
 
 import main
 
+ROOT = Path(__file__).resolve().parents[1]
 SEASONS = ("2025", "2026")
-SEASON_RESOURCES = ("drivers", "teams", "races", "results", "standings/drivers", "standings/teams")
-ENDPOINTS = [f"/load/{season}/{resource}" for season in SEASONS for resource in SEASON_RESOURCES] + [
-    "/load/2026/punishments",
-    "/load/2026/super-license",
-    "/load/2026/prediction/drivers",
-    "/load/2026/prediction/teams",
-]
+API_ROUTES = [r.path for r in main.app.routes if isinstance(r, APIRoute) and "GET" in r.methods]
+
+
+def expand(path):
+    """Troca {season} por cada temporada: '/load/{season}/drivers' -> '/load/2025/drivers', '/load/2026/drivers'."""
+    return [path.replace("{season}", season) for season in SEASONS] if "{season}" in path else [path]
+
+
+# Toda rota da API entra nos testes de resposta automaticamente
+ENDPOINTS = [path for route in API_ROUTES for path in expand(route) if path != "/"]
 
 
 def test_root_retorna_versao_da_api(client):
@@ -83,3 +90,27 @@ def test_cors_libera_qualquer_origem_sem_credenciais(client):
     response = client.get("/load/2026/teams", headers={"Origin": "https://exemplo.com"})
     assert response.headers["access-control-allow-origin"] == "*"
     assert "access-control-allow-credentials" not in response.headers
+
+
+def test_lista_de_rotas_testadas_vem_do_app():
+    assert "/load/2025/standings/drivers" in ENDPOINTS
+    assert "/load/2026/prediction/teams" in ENDPOINTS
+
+
+def test_toda_rota_esta_na_tabela_do_readme():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    for route in API_ROUTES:
+        assert f"| GET | `{route}` |" in readme, route
+
+
+def test_readme_mostra_a_versao_atual_da_api():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert f'"version": "{main.API_VERSION}"' in readme
+
+
+def test_health_check_do_deploy_consulta_todas_as_rotas():
+    script = (ROOT / "deploy" / "publicar.sh").read_text(encoding="utf-8")
+    block = script.split("HEALTH_URLS=(", 1)[1].split(")", 1)[0]
+    urls = [line.strip().removeprefix("http://127.0.0.1:8000") for line in block.splitlines() if line.strip()]
+
+    assert sorted(urls) == sorted(path for route in API_ROUTES for path in expand(route))
