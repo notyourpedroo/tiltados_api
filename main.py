@@ -46,6 +46,7 @@ load_2026_results = importlib.import_module("scripts.2026.load_results").load_re
 calculate_2026_standings = importlib.import_module("scripts.2026.calculate_standings").calculate_standings
 load_2026_punishments = importlib.import_module("scripts.2026.load_punishments").load_punishments
 calculate_2026_super_license = importlib.import_module("scripts.2026.calculate_super_license").calculate_super_license
+calculate_2026_prediction = importlib.import_module("scripts.2026.calculate_prediction").calculate_prediction
 
 
 
@@ -186,6 +187,11 @@ def _get_2026_super_license():
     )
 
 
+@_cached_until_files_change
+def _get_2026_driver_prediction():
+    return calculate_2026_prediction(type="drivers", base_path=_files_path(2026), base_path_2025=_files_path_2025())
+
+
 # Dispatcher por temporada
 _LOADERS = {
     "2025": {
@@ -222,7 +228,7 @@ def _load_data(season: str, resource: str):
 
 # ── Aplicação FastAPI ────────────────────────────────────────────────────────
 
-API_VERSION = "v2.26.1020"
+API_VERSION = "v2.26.1025"
 
 app = FastAPI(
     title="Tiltados API",
@@ -306,3 +312,9 @@ def get_punishments():
 def get_super_license():
     """Retorna o status da Superlicença de cada piloto na temporada 2026."""
     return _df_to_records(_get_2026_super_license())
+
+
+@app.get("/load/2026/prediction/drivers", summary="Chance de título dos pilotos (2026)")
+def get_driver_prediction():
+    """Retorna a situação no título e a Chance de título de cada piloto, simulando as Sessões pendentes de 2026."""
+    return _df_to_records(_get_2026_driver_prediction())

@@ -74,6 +74,7 @@ def _parse_session_file(file_path):
 
     return {
         "file_path": file_path,
+        "local": loc_raw.lower(),
         "race_name": f"{base_gp_name} (SPRINT)" if is_sprint else base_gp_name,
         "race_date": f"{date_raw[:4]}-{date_raw[4:6]}-{date_raw[6:]}",
         "race_location": location,
@@ -86,7 +87,7 @@ def list_sessions(base_path="./files/2026"):
     Lista as sessões de 2026 (arquivos que seguem o padrão de nome), em ordem cronológica.
     No mesmo dia, o sprint vem antes da corrida.
 
-    Cada sessão é um dict com: file_path, race_name, race_date, race_location, is_sprint.
+    Cada sessão é um dict com: file_path, local, race_name, race_date, race_location, is_sprint.
     """
     sessions = [
         session

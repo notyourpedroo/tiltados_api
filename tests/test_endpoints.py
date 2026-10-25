@@ -9,6 +9,7 @@ SEASON_RESOURCES = ("drivers", "teams", "races", "results", "standings/drivers",
 ENDPOINTS = [f"/load/{season}/{resource}" for season in SEASONS for resource in SEASON_RESOURCES] + [
     "/load/2026/punishments",
     "/load/2026/super-license",
+    "/load/2026/prediction/drivers",
 ]
 
 

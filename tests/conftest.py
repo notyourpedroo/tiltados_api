@@ -40,6 +40,22 @@ def replace_in_file(path, old, new):
         f.write(text.replace(old, new, 1))
 
 
+def write_calendar(data_dir, rows):
+    """Reescreve o Calendário de 2026 com as Sessões (local, tipo, data) dadas."""
+    lines = [f"{local},{session_type},{date}\n" for local, session_type, date in rows]
+    with open(data_dir / "2026" / "calendar.csv", "w", encoding="utf-8") as f:
+        f.write("local,tipo,data\n" + "".join(lines))
+
+
+def reset_2026_season(data_dir):
+    """Apaga as sessões e punições de 2026, para o teste montar a temporada do zero."""
+    for file_name in os.listdir(data_dir / "2026"):
+        if file_name not in ("scores.csv", "calendar.csv"):
+            os.remove(data_dir / "2026" / file_name)
+    with open(data_dir / "super_license" / "punishments.csv", "w", encoding="utf-8") as f:
+        f.write("season_year,driver_id,race_id,deduction_points,penalty_reason\n")
+
+
 def write_session(data_dir, file_name, rows):
     """Cria um CSV de sessão de 2026 com o cabeçalho do export e as linhas dadas."""
     lines = [

@@ -9,6 +9,8 @@ from conftest import replace_in_file
 JAPAO = "2026/japao_race_20260323.csv"
 MIAMI = "2026/miami_race_20260427.csv"
 PUNISHMENTS = "super_license/punishments.csv"
+CALENDAR = "2026/calendar.csv"
+PREDICTION = "/load/2026/prediction/drivers"
 
 
 def _replace(relative_path, old, new):
@@ -69,6 +71,42 @@ SCENARIOS = [
         "/load/2026/punishments",
         [f"{PUNISHMENTS}, linha 5", "race_id 99"],
     ),
+    (
+        "calendario ausente",
+        _remove(CALENDAR),
+        PREDICTION,
+        [f"{CALENDAR} não encontrado"],
+    ),
+    (
+        "coluna ausente no calendario",
+        _replace(CALENDAR, "local,tipo,data", "local,tipo,dia"),
+        PREDICTION,
+        [CALENDAR, "'data'"],
+    ),
+    (
+        "tipo invalido no calendario",
+        _replace(CALENDAR, "mexico,race,", "mexico,corrida,"),
+        PREDICTION,
+        [f"{CALENDAR}, linha 25", "'tipo'", "'corrida'"],
+    ),
+    (
+        "data invalida no calendario",
+        _replace(CALENDAR, "mexico,race,2026-11-01", "mexico,race,01/11/2026"),
+        PREDICTION,
+        [f"{CALENDAR}, linha 25", "'data'", "'01/11/2026'"],
+    ),
+    (
+        "sessao repetida no calendario",
+        _replace(CALENDAR, "brasil,race,2026-11-08", "mexico,race,2026-11-08"),
+        PREDICTION,
+        [f"{CALENDAR}, linha 26", "'mexico'", "repetida"],
+    ),
+    (
+        "resultado sem sessao no calendario",
+        _replace(CALENDAR, "japao,race,2026-03-23\n", ""),
+        PREDICTION,
+        [JAPAO, CALENDAR, "japao,race,2026-03-23"],
+    ),
 ]
 
 
@@ -97,3 +135,18 @@ def test_placeholder_nao_afeta_endpoints_que_nao_dependem_de_pilotos(client, dat
     replace_in_file(data_dir / MIAMI, "4,Gabriel,Visa", "4,Pessoa,Visa")
     assert client.get("/load/2026/teams").status_code == 200
     assert client.get("/load/2026/races").status_code == 200
+
+
+def test_erro_no_calendario_nao_afeta_endpoints_que_nao_dependem_dele(client, data_dir):
+    os.remove(data_dir / CALENDAR)
+    assert client.get(PREDICTION).status_code == 500
+    assert client.get("/load/2026/standings/drivers").status_code == 200
+    assert client.get("/load/2025/standings/drivers").status_code == 200
+
+
+def test_chance_de_titulo_volta_ao_normal_quando_o_calendario_e_corrigido(client, data_dir):
+    replace_in_file(data_dir / CALENDAR, "mexico,race,", "mexico,corrida,")
+    assert client.get(PREDICTION).status_code == 500
+
+    replace_in_file(data_dir / CALENDAR, "mexico,corrida,", "mexico,race,")
+    assert client.get(PREDICTION).status_code == 200

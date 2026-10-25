@@ -137,6 +137,8 @@ Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor invá
 
 3. Pronto. Corridas, resultados, pilotos e equipes de 2026 são derivados da pasta `files/2026/`. Se o export vier com o nome `Pessoa` (placeholder do site) ou vazio no lugar do piloto, troque pelo nome real antes de salvar. Caso contrário, os endpoints de 2026 que dependem de pilotos retornam erro indicando o arquivo e a linha a corrigir.
 
+   A sessão precisa estar no Calendário (`files/2026/calendar.csv`, colunas `local,tipo,data`), com o mesmo `{local}` e o mesmo tipo do nome do arquivo. A ligação é só por local e tipo: a data do arquivo de resultado prevalece sobre a data prevista do Calendário. Uma sessão fora do Calendário faz `/load/2026/prediction/drivers` retornar erro indicando o arquivo e a linha a adicionar.
+
    Se a corrida tiver punição de Superlicença, registre também em `files/super_license/punishments.csv` (colunas `season_year,driver_id,race_id,deduction_points,penalty_reason`).
 
 4. Faça o commit e o push na `main`. O GitHub Actions roda os testes e publica a corrida nova no servidor em cerca de 1 a 2 minutos. Os CSVs de produção vêm sempre do Git: não edite arquivos direto no servidor, porque cada publicação substitui a pasta `files/`.
@@ -158,6 +160,7 @@ O parâmetro `{season}` aceita os valores `2025` ou `2026`.
 | GET | `/load/{season}/standings/teams` | Tabela de classificação do campeonato de construtores |
 | GET | `/load/2026/punishments` | Relatório de punições da Superlicença (2026) |
 | GET | `/load/2026/super-license` | Status e saldo de pontos da Superlicença (2026) |
+| GET | `/load/2026/prediction/drivers` | Situação no título e Chance de título dos pilotos (2026) |
 
 ## Regras de Negócio
 
@@ -178,6 +181,22 @@ O parâmetro `{season}` aceita os valores `2025` ou `2026`.
 | 1 a 4 | `Alerta Critico` |
 | 0 ou menos | `Suspenso (Ban)` |
 
+**Chance de título (2026)**
+- O que falta disputar vem do Calendário (`files/2026/calendar.csv`): uma Sessão sem CSV de resultado é pendente, mesmo que a data já tenha passado.
+- Pontos máximos (`max_points`): pontos atuais + os pontos do 1º lugar em cada Sessão pendente.
+- Status no título:
+
+| Situação | Status |
+|---|---|
+| Pontos atuais maiores que os Pontos máximos de todos os rivais | `Campeao` |
+| Pontos máximos menores que os pontos atuais do líder | `Eliminado` |
+| Todo o resto, inclusive empate exato nos Pontos máximos | `Na disputa` |
+
+- Sem Sessões pendentes, o 1º da classificação é `Campeao` e os demais, `Eliminado`.
+- A Chance de título (`championship_probability`, em %) vem de 10.000 simulações das Sessões pendentes. Em cada Sessão, cada piloto sorteia uma das posições que já fez em Corridas de 2026, e a ordem de chegada é a ordenação desses sorteios (posições iguais são desempatadas por sorteio). O campeão de cada simulação sai por pontos, depois vitórias em GP, depois pódios, depois sorteio.
+- `Eliminado` sempre tem 0% e `Campeao` sempre 100%. `expected_points` é a média dos pontos finais nas simulações.
+- A semente da simulação vem dos dados: enquanto os CSVs não mudam, a resposta é sempre a mesma.
+
 ## Exemplos de Uso e Respostas
 
 Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de Singapura).
@@ -188,7 +207,7 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
 ```json
 {
   "name": "Tiltados API",
-  "version": "v2.26.1020",
+  "version": "v2.26.1025",
   "seasons": [
     2025,
     2026
@@ -340,6 +359,54 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
 
 Cada punição precisa apontar para um `driver_id` e um `race_id` existentes em 2026; caso contrário, o endpoint retorna erro indicando a linha do `punishments.csv`.
 
+### 7. Chance de Título dos Pilotos (2026)
+`GET /load/2026/prediction/drivers`
+
+Valores após o GP dos Estados Unidos, com 5 Corridas pendentes (os 3 primeiros da lista):
+
+```json
+[
+  {
+    "position": 1,
+    "driver_id": 5,
+    "driver_name": "Matheus",
+    "team_id": 7,
+    "team_name": "Visa Cash App Racing Bulls",
+    "points": 403,
+    "max_points": 528,
+    "status": "Na disputa",
+    "championship_probability": 100.0,
+    "expected_points": 507.8
+  },
+  {
+    "position": 2,
+    "driver_id": 7,
+    "driver_name": "Yohan",
+    "team_id": 1,
+    "team_name": "Red Bull",
+    "points": 314,
+    "max_points": 439,
+    "status": "Na disputa",
+    "championship_probability": 0.0,
+    "expected_points": 389.6
+  },
+  {
+    "position": 3,
+    "driver_id": 8,
+    "driver_name": "Douglas",
+    "team_id": 6,
+    "team_name": "Mercedes-AMG Petronas",
+    "points": 223,
+    "max_points": 348,
+    "status": "Eliminado",
+    "championship_probability": 0.0,
+    "expected_points": 296.3
+  }
+]
+```
+
+Yohan ainda está `Na disputa` pela matemática, mas aparece com 0% porque, nas Corridas de 2026, Matheus nunca terminou abaixo do 6º lugar. Pontuando em todas as 5 Corridas, Matheus perde no máximo 17 pontos por Corrida para Yohan (25 contra 8), ou 85 no total, menos que os 89 de vantagem. Yohan só seria campeão com Matheus fora dos pontos em alguma Corrida, o que praticamente não acontece nos sorteios.
+
 ## Estrutura do Projeto
 
 ```text
@@ -348,7 +415,7 @@ tiltados_api/
 |-- deploy/                 # Scripts do servidor (preparação única e publicação)
 |-- files/
 |   |-- 2025/               # CSVs consolidados da temporada 2025
-|   |-- 2026/               # CSVs de cada sessão da temporada 2026 (+ scores.csv)
+|   |-- 2026/               # CSVs de cada sessão da temporada 2026 (+ scores.csv e calendar.csv)
 |   `-- super_license/      # Arquivo de punições da superlicença
 |-- scripts/
 |   |-- 2025/               # Módulos de extração e cálculo de 2025
