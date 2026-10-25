@@ -225,3 +225,48 @@ def test_sprint_pendente_usa_posicoes_e_pontos_de_sprint(client, data_dir):
     assert rows["Ana"]["max_points"] == rows["Ana"]["points"] + 8
     assert rows["Ana"]["expected_points"] - rows["Ana"]["points"] == 8
     assert rows["Bia"]["expected_points"] - rows["Bia"]["points"] == 7
+
+
+def punish(client, data_dir, punishments):
+    """Registra punições de Superlicença: lista de (piloto, nome da corrida, pontos deduzidos)."""
+    drivers = {d["driver_name"]: d["driver_id"] for d in client.get("/load/2026/drivers").json()}
+    races = {r["race_name"]: r["race_id"] for r in client.get("/load/2026/races").json()}
+    lines = [f"2026,{drivers[driver]},{races[race]},{points},Teste\n" for driver, race, points in punishments]
+    with open(data_dir / "super_license" / "punishments.csv", "a", encoding="utf-8") as f:
+        f.write("".join(lines))
+
+
+def test_suspensao_tira_o_piloto_da_unica_corrida_pendente(client, data_dir):
+    season(data_dir, [["Ana", "Bia"], ["Ana", "Bia"]], pending=1)
+    punish(client, data_dir, [("Ana", "GP de Etapab", 12)])
+    ana = by_name(client.get(DRIVERS).json())["Ana"]
+
+    assert ana["expected_points"] == ana["points"] == 50
+    assert ana["max_points"] == 75
+
+
+def test_suspensao_vale_so_para_a_primeira_corrida_pendente(client, data_dir):
+    # Ana sempre vence quando corre: fora da 1ª das 3 Corridas pendentes, soma 2 x 25
+    season(data_dir, [["Ana", "Bia"], ["Ana", "Bia"]], pending=3)
+    punish(client, data_dir, [("Ana", "GP de Etapab", 12)])
+    ana = by_name(client.get(DRIVERS).json())["Ana"]
+
+    assert ana["expected_points"] == ana["points"] + 50
+    assert ana["max_points"] == ana["points"] + 75
+
+
+def test_suspensao_cumprida_nao_tira_o_piloto_de_corridas(client, data_dir):
+    # Superlicença zerada na 1ª Corrida; a 2ª Corrida disputada já cumpriu a Suspensão
+    season(data_dir, [["Ana", "Bia"]] * 3, pending=1)
+    punish(client, data_dir, [("Ana", "GP de Etapaa", 12)])
+    ana = by_name(client.get(DRIVERS).json())["Ana"]
+
+    assert ana["expected_points"] - ana["points"] == 25
+
+
+def test_nova_punicao_depois_da_suspensao_gera_nova_suspensao(client, data_dir):
+    season(data_dir, [["Ana", "Bia"]] * 3, pending=1)
+    punish(client, data_dir, [("Ana", "GP de Etapaa", 12), ("Ana", "GP de Etapac", 1)])
+    ana = by_name(client.get(DRIVERS).json())["Ana"]
+
+    assert ana["expected_points"] == ana["points"]

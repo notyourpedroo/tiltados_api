@@ -189,12 +189,22 @@ def _get_2026_super_license():
 
 @_cached_until_files_change
 def _get_2026_driver_prediction():
-    return calculate_2026_prediction(type="drivers", base_path=_files_path(2026), base_path_2025=_files_path_2025())
+    return calculate_2026_prediction(
+        type="drivers",
+        base_path=_files_path(2026),
+        base_path_2025=_files_path_2025(),
+        base_path_sl=_files_path_sl(),
+    )
 
 
 @_cached_until_files_change
 def _get_2026_team_prediction():
-    return calculate_2026_prediction(type="teams", base_path=_files_path(2026), base_path_2025=_files_path_2025())
+    return calculate_2026_prediction(
+        type="teams",
+        base_path=_files_path(2026),
+        base_path_2025=_files_path_2025(),
+        base_path_sl=_files_path_sl(),
+    )
 
 
 # Dispatcher por temporada

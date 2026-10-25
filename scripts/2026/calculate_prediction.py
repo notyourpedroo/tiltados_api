@@ -19,7 +19,9 @@ import pandas as pd
 # Suporta tanto importação relativa de pacote quanto execução direta de script
 try:
     from .calculate_standings import calculate_driver_standings, calculate_team_standings
+    from .calculate_super_license import INITIAL_SUPER_LICENSE_POINTS
     from .load_calendar import load_calendar
+    from .load_punishments import load_punishments
     from .load_races import load_races
     from .load_results import load_results
     from ..errors import read_csv, require_columns, to_int_column
@@ -29,7 +31,9 @@ except (ImportError, ValueError):
         if path not in sys.path:
             sys.path.insert(0, path)
     from calculate_standings import calculate_driver_standings, calculate_team_standings
+    from calculate_super_license import INITIAL_SUPER_LICENSE_POINTS
     from load_calendar import load_calendar
+    from load_punishments import load_punishments
     from load_races import load_races
     from load_results import load_results
     from errors import read_csv, require_columns, to_int_column
@@ -70,18 +74,46 @@ def _title_status(points, max_points, has_pending, positions):
     return statuses
 
 
-def _simulate_pending_sessions(histories, presence, pending, tables, rng, n_simulations):
+def _suspended_drivers(driver_ids, df_races, df_punishments):
+    """
+    Indica, para cada piloto, se ele tem Suspensão a cumprir na próxima Corrida.
+
+    A Suspensão vem da última punição que deixou a Superlicença zerada (ou abaixo de zero)
+    e está cumprida se houve alguma Corrida disputada depois da Sessão dessa punição.
+    """
+    session_order = {race_id: i for i, race_id in enumerate(df_races["race_id"])}
+    race_orders = [i for i, is_sprint in enumerate(df_races["is_sprint"]) if not is_sprint]
+
+    punishments = df_punishments.assign(order=df_punishments["race_id"].map(session_order))
+    punishments = punishments.sort_values("order", kind="stable")
+
+    suspended = []
+    for driver_id in driver_ids:
+        driver_punishments = punishments[punishments["driver_id"] == driver_id]
+        remaining = INITIAL_SUPER_LICENSE_POINTS
+        zeroed_at = None
+        for deduction, order in zip(driver_punishments["deduction_points"], driver_punishments["order"]):
+            remaining -= deduction
+            if remaining <= 0:
+                zeroed_at = order
+        suspended.append(zeroed_at is not None and not any(order > zeroed_at for order in race_orders))
+    return np.array(suspended, dtype=bool)
+
+
+def _simulate_pending_sessions(histories, presence, suspended, pending, tables, rng, n_simulations):
     """
     Simula as Sessões pendentes e devolve, por simulação (linhas) e piloto (colunas),
     os pontos, as vitórias em Corridas e os pódios conquistados.
 
-    `histories[is_sprint][j]` são as posições que o piloto j sorteia nesse tipo de Sessão
-    e `presence[j]`, a probabilidade de ele participar de cada Sessão pendente.
+    `histories[is_sprint][j]` são as posições que o piloto j sorteia nesse tipo de Sessão,
+    `presence[j]` é a probabilidade de ele participar de cada Sessão pendente e `suspended[j]`
+    indica se ele fica fora da primeira Corrida pendente (Suspensão).
     """
     n_drivers = len(presence)
     sim_points = np.zeros((n_simulations, n_drivers))
     sim_wins = np.zeros((n_simulations, n_drivers))
     sim_podiums = np.zeros((n_simulations, n_drivers))
+    suspension_pending = suspended.any()
 
     for is_sprint in pending:
         # Cada participante sorteia uma das suas posições; quem não corre fica no fim (inf)
@@ -89,6 +121,9 @@ def _simulate_pending_sessions(histories, presence, pending, tables, rng, n_simu
         for j, history in enumerate(histories[is_sprint]):
             draws[:, j] = rng.choice(history, n_simulations)
         draws[rng.random((n_simulations, n_drivers)) >= presence] = np.inf
+        if suspension_pending and not is_sprint:
+            draws[:, suspended] = np.inf
+            suspension_pending = False
         draws += rng.random((n_simulations, n_drivers))  # desempate aleatório entre posições iguais
 
         ranks = draws.argsort(axis=1).argsort(axis=1) + 1
@@ -125,7 +160,7 @@ def _finish(df, probability, expected_points, sort_key):
     return df
 
 
-def _simulate_season(base_path, base_path_2025, n_simulations):
+def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
     """
     Simula as Sessões pendentes para os pilotos da classificação atual.
 
@@ -169,8 +204,14 @@ def _simulate_season(base_path, base_path_2025, n_simulations):
     seed_data = pd.util.hash_pandas_object(results, index=False).to_numpy().tobytes() + repr(pending).encode()
     rng = np.random.default_rng(zlib.crc32(seed_data))
 
+    df_punishments = load_punishments(
+        base_path=base_path_sl, season_year=2026, enriched=True,
+        base_path_2026=base_path, base_path_2025=base_path_2025,
+    )
+    suspended = _suspended_drivers(standings["driver_id"], df_races, df_punishments)
+
     sim_points, sim_wins, sim_podiums = _simulate_pending_sessions(
-        histories, presence, pending, tables, rng, n_simulations
+        histories, presence, suspended, pending, tables, rng, n_simulations
     )
     return {
         "standings": standings,
@@ -184,7 +225,10 @@ def _simulate_season(base_path, base_path_2025, n_simulations):
 
 
 def calculate_driver_prediction(
-    base_path="./files/2026", base_path_2025="./files/2025", n_simulations=N_SIMULATIONS
+    base_path="./files/2026",
+    base_path_2025="./files/2025",
+    base_path_sl="./files/super_license",
+    n_simulations=N_SIMULATIONS,
 ):
     """
     Calcula a Chance de título de cada piloto de 2026.
@@ -198,7 +242,7 @@ def calculate_driver_prediction(
     - championship_probability: Chance de título, em porcentagem (1 casa)
     - expected_points: Média dos pontos finais nas simulações
     """
-    season = _simulate_season(base_path, base_path_2025, n_simulations)
+    season = _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations)
     standings, pending, tables = season["standings"], season["pending"], season["tables"]
 
     final_points = standings["points"].to_numpy() + season["sim_points"]
@@ -225,7 +269,10 @@ def calculate_driver_prediction(
 
 
 def calculate_team_prediction(
-    base_path="./files/2026", base_path_2025="./files/2025", n_simulations=N_SIMULATIONS
+    base_path="./files/2026",
+    base_path_2025="./files/2025",
+    base_path_sl="./files/super_license",
+    n_simulations=N_SIMULATIONS,
 ):
     """
     Calcula a Chance de título de cada equipe no campeonato de construtores de 2026.
@@ -242,7 +289,7 @@ def calculate_team_prediction(
     - championship_probability: Chance de título, em porcentagem (1 casa)
     - expected_points: Média dos pontos finais nas simulações
     """
-    season = _simulate_season(base_path, base_path_2025, n_simulations)
+    season = _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations)
     pending, tables = season["pending"], season["tables"]
     team_standings = calculate_team_standings(base_path=base_path, base_path_2025=base_path_2025)
     current_team = season["standings"]["team_id"].to_numpy()
@@ -280,7 +327,9 @@ def calculate_team_prediction(
     return df[cols]
 
 
-def calculate_prediction(type="drivers", base_path="./files/2026", base_path_2025="./files/2025"):
+def calculate_prediction(
+    type="drivers", base_path="./files/2026", base_path_2025="./files/2025", base_path_sl="./files/super_license"
+):
     """
     Função principal da Chance de título de 2026.
 
@@ -288,13 +337,14 @@ def calculate_prediction(type="drivers", base_path="./files/2026", base_path_202
         type (str): 'drivers' para pilotos ou 'teams'/'constructors' para equipes.
         base_path (str): Caminho base dos arquivos de 2026.
         base_path_2025 (str): Caminho base dos arquivos de 2025.
+        base_path_sl (str): Caminho da pasta de punições da Superlicença.
 
     Returns:
         pd.DataFrame: Chance de título solicitada.
     """
     if type in ["teams", "constructors"]:
-        return calculate_team_prediction(base_path=base_path, base_path_2025=base_path_2025)
-    return calculate_driver_prediction(base_path=base_path, base_path_2025=base_path_2025)
+        return calculate_team_prediction(base_path=base_path, base_path_2025=base_path_2025, base_path_sl=base_path_sl)
+    return calculate_driver_prediction(base_path=base_path, base_path_2025=base_path_2025, base_path_sl=base_path_sl)
 
 
 if __name__ == "__main__":
