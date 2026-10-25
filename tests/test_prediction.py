@@ -206,6 +206,14 @@ def test_piloto_que_falta_a_corridas_corre_menos_na_simulacao(client, data_dir):
     assert ana["expected_points"] - ana["points"] <= 13
 
 
+def test_piloto_que_nunca_faltou_corre_todas_as_corridas_pendentes(client, data_dir):
+    # Ana venceu todas as Corridas: com 100% de presença, vence as 2 pendentes em toda simulação
+    season(data_dir, [["Ana", "Bia", "Caio"]] * 3, pending=2)
+    ana = by_name(client.get(DRIVERS).json())["Ana"]
+
+    assert ana["expected_points"] == ana["points"] + 50
+
+
 def test_piloto_sem_corrida_sorteia_das_sprints(client, data_dir):
     season(data_dir, [["Ana", "Bia", "Caio"]], pending=1)
     write_session(data_dir, "china_sprint_20260302.csv", [(1, "Zeca", TEAM, 1), (2, "Ana", TEAM, 2)])
@@ -245,7 +253,9 @@ def test_suspensao_tira_o_piloto_da_unica_corrida_pendente(client, data_dir):
     ana = by_name(client.get(DRIVERS).json())["Ana"]
 
     assert ana["expected_points"] == ana["points"] == 50
+    # A Suspensão só afeta a simulação: Pontos máximos e status seguem a matemática
     assert ana["max_points"] == 75
+    assert ana["status"] == "Na disputa"
 
 
 def test_suspensao_vale_so_para_a_primeira_corrida_pendente(client, data_dir):
