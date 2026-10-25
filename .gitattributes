@@ -1,2 +1,6 @@
-# Scripts executados no servidor Linux precisam de quebra de linha LF.
-*.sh text eol=lf
+# Texto com quebra de linha LF, inclusive na cópia de trabalho do Windows:
+# os scripts e o hook rodam em sh/bash, e o servidor é Linux.
+* text=auto eol=lf
+
+# Os CSVs ficam byte a byte como vêm do export do site de resultados.
+*.csv -text
