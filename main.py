@@ -188,19 +188,9 @@ def _get_2026_super_license():
 
 
 @_cached_until_files_change
-def _get_2026_driver_prediction():
+def _get_2026_prediction():
+    """Chance de título de pilotos e construtores, calculada com as mesmas simulações."""
     return calculate_2026_prediction(
-        type="drivers",
-        base_path=_files_path(2026),
-        base_path_2025=_files_path_2025(),
-        base_path_sl=_files_path_sl(),
-    )
-
-
-@_cached_until_files_change
-def _get_2026_team_prediction():
-    return calculate_2026_prediction(
-        type="teams",
         base_path=_files_path(2026),
         base_path_2025=_files_path_2025(),
         base_path_sl=_files_path_sl(),
@@ -332,10 +322,10 @@ def get_super_license():
 @app.get("/load/2026/prediction/drivers", summary="Chance de título dos pilotos (2026)")
 def get_driver_prediction():
     """Retorna a situação no título e a Chance de título de cada piloto, simulando as Sessões pendentes de 2026."""
-    return _df_to_records(_get_2026_driver_prediction())
+    return _df_to_records(_get_2026_prediction()["drivers"])
 
 
 @app.get("/load/2026/prediction/teams", summary="Chance de título dos construtores (2026)")
 def get_team_prediction():
     """Retorna a situação no título e a Chance de título de cada equipe, simulando as Sessões pendentes de 2026."""
-    return _df_to_records(_get_2026_team_prediction())
+    return _df_to_records(_get_2026_prediction()["teams"])

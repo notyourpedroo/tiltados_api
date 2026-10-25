@@ -224,14 +224,9 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
     }
 
 
-def calculate_driver_prediction(
-    base_path="./files/2026",
-    base_path_2025="./files/2025",
-    base_path_sl="./files/super_license",
-    n_simulations=N_SIMULATIONS,
-):
+def _driver_prediction(season):
     """
-    Calcula a Chance de título de cada piloto de 2026.
+    Chance de título de cada piloto, a partir da temporada simulada.
 
     Colunas do DataFrame retornado:
     - position: Posição nesta lista (ordenada pela Chance de título)
@@ -242,7 +237,6 @@ def calculate_driver_prediction(
     - championship_probability: Chance de título, em porcentagem (1 casa)
     - expected_points: Média dos pontos finais nas simulações
     """
-    season = _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations)
     standings, pending, tables = season["standings"], season["pending"], season["tables"]
 
     final_points = standings["points"].to_numpy() + season["sim_points"]
@@ -268,15 +262,9 @@ def calculate_driver_prediction(
     return df[cols]
 
 
-def calculate_team_prediction(
-    base_path="./files/2026",
-    base_path_2025="./files/2025",
-    base_path_sl="./files/super_license",
-    n_simulations=N_SIMULATIONS,
-):
+def _team_prediction(season, team_standings):
     """
-    Calcula a Chance de título de cada equipe no campeonato de construtores de 2026.
-
+    Chance de título de cada equipe, a partir da temporada simulada.
     Os pontos simulados de cada piloto vão para a equipe atual dele.
 
     Colunas do DataFrame retornado:
@@ -289,9 +277,7 @@ def calculate_team_prediction(
     - championship_probability: Chance de título, em porcentagem (1 casa)
     - expected_points: Média dos pontos finais nas simulações
     """
-    season = _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations)
     pending, tables = season["pending"], season["tables"]
-    team_standings = calculate_team_standings(base_path=base_path, base_path_2025=base_path_2025)
     current_team = season["standings"]["team_id"].to_numpy()
 
     # Somar os resultados simulados dos pilotos de cada equipe atual
@@ -305,8 +291,8 @@ def calculate_team_prediction(
         final["wins"].append(wins + season["sim_wins"][:, drivers].sum(axis=1))
         final["podiums"].append(podiums + season["sim_podiums"][:, drivers].sum(axis=1))
 
-        best_positions = min(int(drivers.sum()), 2)
-        max_points.append(points + int(sum(tables[s][1:best_positions + 1].sum() for s in pending)))
+        scoring_positions = min(int(drivers.sum()), 2)
+        max_points.append(points + int(sum(tables[is_sprint][1:scoring_positions + 1].sum() for is_sprint in pending)))
 
     final_points, final_wins, final_podiums = (np.column_stack(final[key]) for key in ("points", "wins", "podiums"))
 
@@ -328,28 +314,39 @@ def calculate_team_prediction(
 
 
 def calculate_prediction(
-    type="drivers", base_path="./files/2026", base_path_2025="./files/2025", base_path_sl="./files/super_license"
+    base_path="./files/2026",
+    base_path_2025="./files/2025",
+    base_path_sl="./files/super_license",
+    n_simulations=N_SIMULATIONS,
 ):
     """
     Função principal da Chance de título de 2026.
 
+    Simula as Sessões pendentes uma única vez e usa as mesmas simulações
+    para o campeonato de pilotos e o de construtores.
+
     Args:
-        type (str): 'drivers' para pilotos ou 'teams'/'constructors' para equipes.
         base_path (str): Caminho base dos arquivos de 2026.
         base_path_2025 (str): Caminho base dos arquivos de 2025.
         base_path_sl (str): Caminho da pasta de punições da Superlicença.
+        n_simulations (int): Quantidade de simulações.
 
     Returns:
-        pd.DataFrame: Chance de título solicitada.
+        dict: {'drivers': pd.DataFrame, 'teams': pd.DataFrame} com a Chance de título de pilotos e equipes.
     """
-    if type in ["teams", "constructors"]:
-        return calculate_team_prediction(base_path=base_path, base_path_2025=base_path_2025, base_path_sl=base_path_sl)
-    return calculate_driver_prediction(base_path=base_path, base_path_2025=base_path_2025, base_path_sl=base_path_sl)
+    season = _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations)
+    team_standings = calculate_team_standings(base_path=base_path, base_path_2025=base_path_2025)
+    return {
+        "drivers": _driver_prediction(season),
+        "teams": _team_prediction(season, team_standings),
+    }
 
 
 if __name__ == "__main__":
+    prediction = calculate_prediction()
+
     print("\n=== CHANCE DE TITULO DE PILOTOS - TEMPORADA 2026 ===")
-    print(calculate_driver_prediction().to_string(index=False))
+    print(prediction["drivers"].to_string(index=False))
 
     print("\n=== CHANCE DE TITULO DE CONSTRUTORES - TEMPORADA 2026 ===")
-    print(calculate_team_prediction().to_string(index=False))
+    print(prediction["teams"].to_string(index=False))
