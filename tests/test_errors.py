@@ -90,6 +90,12 @@ SCENARIOS = [
         [f"{CALENDAR}, linha 25", "'tipo'", "'corrida'"],
     ),
     (
+        "local fora do mapeamento no calendario",
+        _replace(CALENDAR, "mexico,race,", "mexcio,race,"),
+        PREDICTION,
+        [f"{CALENDAR}, linha 25", "'mexcio'", "LOCATION_MAP"],
+    ),
+    (
         "data invalida no calendario",
         _replace(CALENDAR, "mexico,race,2026-11-01", "mexico,race,01/11/2026"),
         PREDICTION,

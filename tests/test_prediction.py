@@ -6,6 +6,9 @@ from conftest import reset_2026_season, write_calendar, write_session
 
 DRIVERS = "/load/2026/prediction/drivers"
 TEAM = "Red Bull"
+# Locais do LOCATION_MAP usados nas temporadas sintéticas
+PLAYED = ["australia", "china", "japao", "bahrein", "arabia_saudita", "miami"]
+PENDING = ["mexico", "brasil", "las_vegas", "catar", "abu_dhabi"]
 
 DRIVER_FIELDS = {
     "position", "driver_id", "driver_name", "team_id", "team_name", "points",
@@ -36,11 +39,11 @@ def season(data_dir, races, pending, teams=None):
 
     played = []
     for i, finishing_order in enumerate(races, start=1):
-        local = f"etapa{'abcdefghij'[i - 1]}"
+        local = PLAYED[i - 1]
         write_session(data_dir, f"{local}_race_2026030{i}.csv",
                       [(pos, driver, team_of(driver, i - 1), pos) for pos, driver in enumerate(finishing_order, start=1)])
         played.append((local, "race", f"2026-03-0{i}"))
-    write_calendar(data_dir, played + [(f"futura{'abcdefghij'[i]}", "race", f"2026-12-0{i + 1}") for i in range(pending)])
+    write_calendar(data_dir, played + [(PENDING[i], "race", f"2026-12-0{i + 1}") for i in range(pending)])
 
 
 def test_pilotos_trazem_situacao_e_chance_de_titulo(client):
@@ -205,8 +208,8 @@ def test_piloto_que_falta_a_corridas_corre_menos_na_simulacao(client, data_dir):
 
 def test_piloto_sem_corrida_sorteia_das_sprints(client, data_dir):
     season(data_dir, [["Ana", "Bia", "Caio"]], pending=1)
-    write_session(data_dir, "etapab_sprint_20260302.csv", [(1, "Zeca", TEAM, 1), (2, "Ana", TEAM, 2)])
-    write_calendar(data_dir, calendar_rows(data_dir) + [("etapab", "sprint", "2026-03-02")])
+    write_session(data_dir, "china_sprint_20260302.csv", [(1, "Zeca", TEAM, 1), (2, "Ana", TEAM, 2)])
+    write_calendar(data_dir, calendar_rows(data_dir) + [("china", "sprint", "2026-03-02")])
     zeca = by_name(client.get(DRIVERS).json())["Zeca"]
 
     assert zeca["points"] == 8
@@ -216,10 +219,10 @@ def test_piloto_sem_corrida_sorteia_das_sprints(client, data_dir):
 def test_sprint_pendente_usa_posicoes_e_pontos_de_sprint(client, data_dir):
     # Ana vence as Sprints e chega em último nas Corridas; Bia, o contrário
     reset_2026_season(data_dir)
-    write_session(data_dir, "etapaa_sprint_20260301.csv", [(1, "Ana", TEAM, 1), (2, "Bia", TEAM, 2)])
-    write_session(data_dir, "etapaa_race_20260301.csv", [(1, "Bia", TEAM, 1), (2, "Ana", TEAM, 2)])
-    write_calendar(data_dir, [("etapaa", "sprint", "2026-03-01"), ("etapaa", "race", "2026-03-01"),
-                              ("etapab", "sprint", "2026-03-08")])
+    write_session(data_dir, "australia_sprint_20260301.csv", [(1, "Ana", TEAM, 1), (2, "Bia", TEAM, 2)])
+    write_session(data_dir, "australia_race_20260301.csv", [(1, "Bia", TEAM, 1), (2, "Ana", TEAM, 2)])
+    write_calendar(data_dir, [("australia", "sprint", "2026-03-01"), ("australia", "race", "2026-03-01"),
+                              ("china", "sprint", "2026-03-08")])
     rows = by_name(client.get(DRIVERS).json())
 
     assert rows["Ana"]["max_points"] == rows["Ana"]["points"] + 8
@@ -238,7 +241,7 @@ def punish(client, data_dir, punishments):
 
 def test_suspensao_tira_o_piloto_da_unica_corrida_pendente(client, data_dir):
     season(data_dir, [["Ana", "Bia"], ["Ana", "Bia"]], pending=1)
-    punish(client, data_dir, [("Ana", "GP de Etapab", 12)])
+    punish(client, data_dir, [("Ana", "GP da China", 12)])
     ana = by_name(client.get(DRIVERS).json())["Ana"]
 
     assert ana["expected_points"] == ana["points"] == 50
@@ -248,7 +251,7 @@ def test_suspensao_tira_o_piloto_da_unica_corrida_pendente(client, data_dir):
 def test_suspensao_vale_so_para_a_primeira_corrida_pendente(client, data_dir):
     # Ana sempre vence quando corre: fora da 1ª das 3 Corridas pendentes, soma 2 x 25
     season(data_dir, [["Ana", "Bia"], ["Ana", "Bia"]], pending=3)
-    punish(client, data_dir, [("Ana", "GP de Etapab", 12)])
+    punish(client, data_dir, [("Ana", "GP da China", 12)])
     ana = by_name(client.get(DRIVERS).json())["Ana"]
 
     assert ana["expected_points"] == ana["points"] + 50
@@ -258,7 +261,7 @@ def test_suspensao_vale_so_para_a_primeira_corrida_pendente(client, data_dir):
 def test_suspensao_cumprida_nao_tira_o_piloto_de_corridas(client, data_dir):
     # Superlicença zerada na 1ª Corrida; a 2ª Corrida disputada já cumpriu a Suspensão
     season(data_dir, [["Ana", "Bia"]] * 3, pending=1)
-    punish(client, data_dir, [("Ana", "GP de Etapaa", 12)])
+    punish(client, data_dir, [("Ana", "GP da Austrália", 12)])
     ana = by_name(client.get(DRIVERS).json())["Ana"]
 
     assert ana["expected_points"] - ana["points"] == 25
@@ -266,7 +269,7 @@ def test_suspensao_cumprida_nao_tira_o_piloto_de_corridas(client, data_dir):
 
 def test_nova_punicao_depois_da_suspensao_gera_nova_suspensao(client, data_dir):
     season(data_dir, [["Ana", "Bia"]] * 3, pending=1)
-    punish(client, data_dir, [("Ana", "GP de Etapaa", 12), ("Ana", "GP de Etapac", 1)])
+    punish(client, data_dir, [("Ana", "GP da Austrália", 12), ("Ana", "GP do Japão", 1)])
     ana = by_name(client.get(DRIVERS).json())["Ana"]
 
     assert ana["expected_points"] == ana["points"]

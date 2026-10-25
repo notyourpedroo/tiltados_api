@@ -15,14 +15,14 @@ import pandas as pd
 
 # Suporta tanto importação relativa de pacote quanto execução direta de script
 try:
-    from .common import list_sessions
+    from .common import LOCATION_MAP, list_sessions
     from ..errors import DataError, display_path, read_csv, require_columns, require_dir
 except (ImportError, ValueError):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     for path in (current_dir, os.path.dirname(current_dir)):
         if path not in sys.path:
             sys.path.insert(0, path)
-    from common import list_sessions
+    from common import LOCATION_MAP, list_sessions
     from errors import DataError, display_path, read_csv, require_columns, require_dir
 
 SESSION_TYPES = {"race": False, "sprint": True}
@@ -41,7 +41,7 @@ def load_calendar(base_path="./files/2026"):
     Lê o calendar.csv de 2026 e cruza com as Sessões que já têm resultado.
 
     Gera um DataFrame, em ordem cronológica (no mesmo dia, a sprint antes da corrida), com:
-    - local: Local da Etapa, como no nome dos arquivos de sessão (ex: 'mexico')
+    - local: Local da Etapa, como no nome dos arquivos de sessão e no LOCATION_MAP (ex: 'mexico')
     - is_sprint: Indica se a Sessão é uma Sprint (True/False)
     - race_date: Data do arquivo de resultado, se disputada; senão, a data prevista
     - is_played: Indica se a Sessão já foi disputada (True/False)
@@ -54,8 +54,8 @@ def load_calendar(base_path="./files/2026"):
         pd.DataFrame: DataFrame com as Sessões do Calendário.
 
     Raises:
-        DataError: Se o calendar.csv não existir, faltar coluna, tiver valor inválido
-                   ou Sessão repetida, ou se algum CSV de resultado não estiver no Calendário.
+        DataError: Se o calendar.csv não existir, faltar coluna, tiver valor inválido,
+                   local fora do LOCATION_MAP ou Sessão repetida, ou se algum CSV de resultado não estiver no Calendário.
     """
     require_dir(base_path)
     calendar_file = os.path.join(base_path, "calendar.csv")
@@ -72,6 +72,10 @@ def load_calendar(base_path="./files/2026"):
 
         if not local:
             raise DataError(f"{line}: coluna 'local' vazia.")
+        if local not in LOCATION_MAP:
+            raise DataError(
+                f"{line}: local '{row['local']}' não está no LOCATION_MAP (scripts/2026/common.py)."
+            )
         if session_type not in SESSION_TYPES:
             raise DataError(f"{line}: coluna 'tipo' com valor '{row['tipo']}' (esperado 'race' ou 'sprint').")
         if planned_date is None:
