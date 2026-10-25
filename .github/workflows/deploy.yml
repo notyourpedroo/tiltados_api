@@ -33,6 +33,9 @@ jobs:
 
       - run: pip install -r requirements-dev.txt
 
+      - name: Lint
+        run: ruff check .
+
       # Os testes também validam os CSVs de files/: um resultado quebrado
       # para aqui, antes de chegar ao servidor.
       - name: Testes
