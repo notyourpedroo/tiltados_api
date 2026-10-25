@@ -35,6 +35,12 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+4. Ative o hook que confere as mensagens de commit (Conventional Commits, em português sem acentos):
+
+```bash
+git config core.hooksPath .githooks
+```
+
 ## Execução
 
 Para iniciar o servidor de desenvolvimento:
@@ -90,14 +96,17 @@ limit_req_status 429;
 
 ## Testes
 
-Instale as dependências de desenvolvimento e rode o `pytest` na raiz do projeto:
+Instale as dependências de desenvolvimento e rode o lint e o `pytest` na raiz do projeto (o CI roda os dois, nessa ordem):
 
 ```bash
 pip install -r requirements-dev.txt
+ruff check .
 pytest
 ```
 
 Os testes rodam sobre uma cópia de `files/` em uma pasta temporária, então podem alterar ou quebrar CSVs sem tocar nos dados reais. Eles cobrem os endpoints, a consistência dos dados (IDs, pontos, superlicença), as regras de 2026 (IDs reaproveitados de 2025, equipe atual do piloto, recarga do cache) e as mensagens de erro para CSVs inválidos.
+
+Toda rota da API entra sozinha nos testes de resposta. Uma rota nova também precisa aparecer na tabela de "Endpoints Disponíveis" e na lista `HEALTH_URLS` de `deploy/publicar.sh`, senão os testes falham.
 
 Um dos testes exige que todo local de arquivo em `files/2026/` esteja no `LOCATION_MAP`. Ao adicionar um GP novo, inclua o local no mapeamento.
 

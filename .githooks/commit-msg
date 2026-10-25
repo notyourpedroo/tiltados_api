@@ -1,0 +1,33 @@
+#!/usr/bin/env sh
+# Confere a mensagem de commit: Conventional Commits, em português sem acentos
+# e sem linha de co-autoria do Claude. Ativação (uma vez por clone):
+#
+#   git config core.hooksPath .githooks
+
+MSG_FILE="$1"
+# Linhas de comentário (#) são descartadas pelo git e ficam fora da conferência
+MESSAGE="$(grep -v '^#' "$MSG_FILE")"
+SUBJECT="$(printf '%s\n' "$MESSAGE" | head -n 1)"
+
+fail() {
+  echo "commit-msg: $1" >&2
+  echo "  mensagem: $SUBJECT" >&2
+  exit 1
+}
+
+# Merges e reverts gerados pelo próprio git passam direto
+case "$SUBJECT" in
+  "Merge "*|"Revert \""*) exit 0 ;;
+esac
+
+TYPES="feat|fix|refactor|perf|test|docs|ci|chore|build|style|revert"
+printf '%s\n' "$SUBJECT" | grep -Eq "^($TYPES)(\([a-z0-9_-]+\))?!?: .+" ||
+  fail "use 'tipo(escopo): descricao', com tipo em: ${TYPES}"
+
+printf '%s\n' "$MESSAGE" | LC_ALL=C grep -q "$(printf '[^\t -~]')" &&
+  fail "escreva sem acentos nem caracteres fora do ASCII"
+
+printf '%s\n' "$MESSAGE" | grep -Eiq '^co-authored-by:.*(claude|anthropic)' &&
+  fail "remova a linha de co-autoria do Claude"
+
+exit 0
