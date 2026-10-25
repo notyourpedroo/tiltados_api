@@ -194,7 +194,8 @@ O parâmetro `{season}` aceita os valores `2025` ou `2026`.
 | Todo o resto, inclusive empate exato nos Pontos máximos | `Na disputa` |
 
 - Sem Sessões pendentes, o 1º da classificação é `Campeao` e os demais, `Eliminado`.
-- A Chance de título (`championship_probability`, em %) vem de 10.000 simulações das Sessões pendentes. Em cada Sessão, cada piloto sorteia uma das posições que já fez em Corridas de 2026, e a ordem de chegada é a ordenação desses sorteios (posições iguais são desempatadas por sorteio). O campeão de cada simulação sai por pontos, depois vitórias em GP, depois pódios, depois sorteio.
+- A Chance de título (`championship_probability`, em %) vem de 10.000 simulações das Sessões pendentes. Em cada Corrida pendente, cada piloto sorteia uma das posições que já fez em Corridas de 2026, e a ordem de chegada é a ordenação desses sorteios (posições iguais são desempatadas por sorteio). Numa Sprint pendente, o sorteio é entre as posições em Sprints. Quem não tem nenhuma Sessão do tipo sorteia das posições do outro tipo. O campeão de cada simulação sai por pontos, depois vitórias em GP, depois pódios, depois sorteio.
+- Entra na simulação todo piloto com alguma sessão disputada em 2026. Ele participa de cada Sessão pendente com a sua taxa de presença: Corridas que disputou / Corridas disputadas na temporada (quem só correu Sprints usa a razão sobre todas as sessões).
 - No campeonato de construtores, os pontos simulados de cada piloto vão para a equipe atual dele (a da sessão mais recente).
 - `Eliminado` sempre tem 0% e `Campeao` sempre 100%. `expected_points` é a média dos pontos finais nas simulações.
 - A semente da simulação vem dos dados: enquanto os CSVs não mudam, a resposta é sempre a mesma.
@@ -378,7 +379,7 @@ Valores após o GP dos Estados Unidos, com 5 Corridas pendentes (os 3 primeiros 
     "max_points": 528,
     "status": "Na disputa",
     "championship_probability": 100.0,
-    "expected_points": 507.8
+    "expected_points": 509.5
   },
   {
     "position": 2,
@@ -390,7 +391,7 @@ Valores após o GP dos Estados Unidos, com 5 Corridas pendentes (os 3 primeiros 
     "max_points": 439,
     "status": "Na disputa",
     "championship_probability": 0.0,
-    "expected_points": 389.6
+    "expected_points": 394.3
   },
   {
     "position": 3,
@@ -402,7 +403,7 @@ Valores após o GP dos Estados Unidos, com 5 Corridas pendentes (os 3 primeiros 
     "max_points": 348,
     "status": "Eliminado",
     "championship_probability": 0.0,
-    "expected_points": 296.3
+    "expected_points": 279.4
   }
 ]
 ```
@@ -424,7 +425,7 @@ Valores após o GP dos Estados Unidos (os 2 primeiros da lista):
     "max_points": 803,
     "status": "Na disputa",
     "championship_probability": 100.0,
-    "expected_points": 741.3
+    "expected_points": 740.8
   },
   {
     "position": 2,
@@ -434,7 +435,7 @@ Valores após o GP dos Estados Unidos (os 2 primeiros da lista):
     "max_points": 691,
     "status": "Na disputa",
     "championship_probability": 0.0,
-    "expected_points": 576.8
+    "expected_points": 595.8
   }
 ]
 ```

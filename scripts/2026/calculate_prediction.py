@@ -70,12 +70,15 @@ def _title_status(points, max_points, has_pending, positions):
     return statuses
 
 
-def _simulate_pending_sessions(histories, pending, tables, rng, n_simulations):
+def _simulate_pending_sessions(histories, presence, pending, tables, rng, n_simulations):
     """
     Simula as Sessões pendentes e devolve, por simulação (linhas) e piloto (colunas),
     os pontos, as vitórias em Corridas e os pódios conquistados.
+
+    `histories[is_sprint][j]` são as posições que o piloto j sorteia nesse tipo de Sessão
+    e `presence[j]`, a probabilidade de ele participar de cada Sessão pendente.
     """
-    n_drivers = len(histories)
+    n_drivers = len(presence)
     sim_points = np.zeros((n_simulations, n_drivers))
     sim_wins = np.zeros((n_simulations, n_drivers))
     sim_podiums = np.zeros((n_simulations, n_drivers))
@@ -83,9 +86,9 @@ def _simulate_pending_sessions(histories, pending, tables, rng, n_simulations):
     for is_sprint in pending:
         # Cada participante sorteia uma das suas posições; quem não corre fica no fim (inf)
         draws = np.full((n_simulations, n_drivers), np.inf)
-        for j, history in enumerate(histories):
-            if history.size:
-                draws[:, j] = rng.choice(history, n_simulations)
+        for j, history in enumerate(histories[is_sprint]):
+            draws[:, j] = rng.choice(history, n_simulations)
+        draws[rng.random((n_simulations, n_drivers)) >= presence] = np.inf
         draws += rng.random((n_simulations, n_drivers))  # desempate aleatório entre posições iguais
 
         ranks = draws.argsort(axis=1).argsort(axis=1) + 1
@@ -138,19 +141,37 @@ def _simulate_season(base_path, base_path_2025, n_simulations):
     pending = calendar.loc[~calendar["is_played"], "is_sprint"].tolist()
     tables = _load_points_tables(base_path, size=len(standings))
 
-    # Posições de cada piloto nas Corridas de 2026
+    # Posições de cada piloto em Corridas e em Sprints de 2026. Cada tipo de Sessão pendente
+    # sorteia das posições do mesmo tipo; quem não tem nenhuma usa as do outro tipo.
     results = df_results.merge(df_races[["race_id", "is_sprint"]], on="race_id")
-    races_only = results[~results["is_sprint"]]
-    histories = [
-        races_only.loc[races_only["driver_id"] == driver_id, "driver_final_position"].to_numpy()
-        for driver_id in standings["driver_id"]
-    ]
+    positions = {
+        is_sprint: [
+            results.loc[(results["driver_id"] == driver_id) & (results["is_sprint"] == is_sprint),
+                        "driver_final_position"].to_numpy()
+            for driver_id in standings["driver_id"]
+        ]
+        for is_sprint in (False, True)
+    }
+    histories = {
+        is_sprint: [own if own.size else other for own, other in zip(positions[is_sprint], positions[not is_sprint])]
+        for is_sprint in (False, True)
+    }
+
+    # Presença: Corridas disputadas pelo piloto / Corridas da temporada; sem Corrida, a razão sobre Sessões
+    races_played = results.loc[~results["is_sprint"], "race_id"].nunique()
+    sessions_played = results["race_id"].nunique()
+    presence = np.array([
+        races.size / races_played if races.size else sprints.size / sessions_played
+        for races, sprints in zip(positions[False], positions[True])
+    ])
 
     # Semente derivada dos dados: os mesmos CSVs dão sempre a mesma resposta
     seed_data = pd.util.hash_pandas_object(results, index=False).to_numpy().tobytes() + repr(pending).encode()
     rng = np.random.default_rng(zlib.crc32(seed_data))
 
-    sim_points, sim_wins, sim_podiums = _simulate_pending_sessions(histories, pending, tables, rng, n_simulations)
+    sim_points, sim_wins, sim_podiums = _simulate_pending_sessions(
+        histories, presence, pending, tables, rng, n_simulations
+    )
     return {
         "standings": standings,
         "pending": pending,

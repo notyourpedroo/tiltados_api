@@ -192,3 +192,36 @@ def test_construtores_mesmos_dados_dao_a_mesma_resposta(client, data_dir):
     first = client.get(TEAMS).json()
     write_calendar(data_dir, calendar_rows(data_dir))
     assert client.get(TEAMS).json() == first
+
+
+def test_piloto_que_falta_a_corridas_corre_menos_na_simulacao(client, data_dir):
+    # Ana venceu as 2 Corridas que disputou, mas faltou a outras 2: presença de 50%
+    season(data_dir, [["Ana", "Bia", "Caio"], ["Ana", "Bia", "Caio"], ["Bia", "Caio"], ["Bia", "Caio"]], pending=1)
+    ana = by_name(client.get(DRIVERS).json())["Ana"]
+
+    # Correndo sempre, Ana ganharia pelo menos ~23 pontos em média; com 50% de presença, no máximo 12,5
+    assert ana["expected_points"] - ana["points"] <= 13
+
+
+def test_piloto_sem_corrida_sorteia_das_sprints(client, data_dir):
+    season(data_dir, [["Ana", "Bia", "Caio"]], pending=1)
+    write_session(data_dir, "etapab_sprint_20260302.csv", [(1, "Zeca", TEAM, 1), (2, "Ana", TEAM, 2)])
+    write_calendar(data_dir, calendar_rows(data_dir) + [("etapab", "sprint", "2026-03-02")])
+    zeca = by_name(client.get(DRIVERS).json())["Zeca"]
+
+    assert zeca["points"] == 8
+    assert zeca["expected_points"] > zeca["points"]
+
+
+def test_sprint_pendente_usa_posicoes_e_pontos_de_sprint(client, data_dir):
+    # Ana vence as Sprints e chega em último nas Corridas; Bia, o contrário
+    reset_2026_season(data_dir)
+    write_session(data_dir, "etapaa_sprint_20260301.csv", [(1, "Ana", TEAM, 1), (2, "Bia", TEAM, 2)])
+    write_session(data_dir, "etapaa_race_20260301.csv", [(1, "Bia", TEAM, 1), (2, "Ana", TEAM, 2)])
+    write_calendar(data_dir, [("etapaa", "sprint", "2026-03-01"), ("etapaa", "race", "2026-03-01"),
+                              ("etapab", "sprint", "2026-03-08")])
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Ana"]["max_points"] == rows["Ana"]["points"] + 8
+    assert rows["Ana"]["expected_points"] - rows["Ana"]["points"] == 8
+    assert rows["Bia"]["expected_points"] - rows["Bia"]["points"] == 7
