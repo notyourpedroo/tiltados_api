@@ -47,7 +47,7 @@ Piloto ou equipe cujos Pontos máximos são menores que os pontos atuais do líd
 
 **Chance de título**:
 A estimativa, em porcentagem, de um piloto ou equipe terminar como campeão, obtida simulando as Sessões pendentes.
-_Avoid_: odds, prediction, probabilidade de campeão
+_Avoid_: odds, probabilidade de campeão
 
 ## Superlicença
 
