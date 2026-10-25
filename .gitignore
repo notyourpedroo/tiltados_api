@@ -14,6 +14,7 @@ __pycache__/
 
 # Agentes de IA (configuracoes e instrucoes locais)
 AGENTS.md
+CLAUDE.md
 /.claude/
 
 # Pytest
