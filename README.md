@@ -209,6 +209,12 @@ O parâmetro `{season}` aceita os valores `2025` ou `2026`.
 - No campeonato de construtores, os pontos simulados de cada piloto vão para a equipe atual dele (a da sessão mais recente).
 - `Eliminado` sempre tem 0% e `Campeao` sempre 100%. `expected_points` é a média dos pontos finais nas simulações.
 - A semente da simulação vem dos dados: enquanto os CSVs não mudam, a resposta é sempre a mesma.
+- `probability_reason` traz o Motivo da Chance de título: uma frase em PT-BR montada por templates a partir dos mesmos dados, então os mesmos CSVs dão sempre o mesmo Motivo. O rival de referência é o líder da classificação; o próprio líder se compara com o 2º. O template segue esta ordem:
+  - Sem Sessões pendentes: a posição final e a distância para o campeão. Se a posição foi decidida no desempate, diz com quem empatou em pontos e se ganhou ou perdeu por vitórias ou por pódios.
+  - `Eliminado`: os Pontos máximos (vencendo todas as Sessões pendentes; para equipes, fazendo 1º e 2º, ou só vencendo, com um único piloto) abaixo dos pontos do líder.
+  - `Campeao` antes da última Sessão: nenhum rival alcança mais os seus pontos, com os Pontos máximos do mais próximo.
+  - `Na disputa`: a distância para o líder (ou, para o líder, a vantagem sobre o 2º), as Sessões pendentes e os pontos médios nas simulações, os seus e os do rival.
+  - Os números do texto seguem o padrão brasileiro ("10.000", "509,5", "6º"); os campos numéricos do JSON não mudam.
 
 ## Exemplos de Uso e Respostas
 
@@ -220,7 +226,7 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
 ```json
 {
   "name": "Tiltados API",
-  "version": "v2.26.1025",
+  "version": "v2.26.1026",
   "seasons": [
     2025,
     2026
@@ -389,7 +395,8 @@ Valores após o GP dos Estados Unidos, com 5 Corridas pendentes (os 3 primeiros 
     "max_points": 528,
     "status": "Na disputa",
     "championship_probability": 100.0,
-    "expected_points": 509.5
+    "expected_points": 509.5,
+    "probability_reason": "Lidera com 89 pontos de vantagem sobre Yohan e 5 Sessões pendentes; nas simulações termina em média com 509,5 pontos, contra 394,3 de Yohan."
   },
   {
     "position": 2,
@@ -401,7 +408,8 @@ Valores após o GP dos Estados Unidos, com 5 Corridas pendentes (os 3 primeiros 
     "max_points": 439,
     "status": "Na disputa",
     "championship_probability": 0.0,
-    "expected_points": 394.3
+    "expected_points": 394.3,
+    "probability_reason": "Está a 89 pontos de Matheus com 5 Sessões pendentes; nas simulações termina em média com 394,3 pontos, contra 509,5 de Matheus."
   },
   {
     "position": 3,
@@ -413,7 +421,8 @@ Valores após o GP dos Estados Unidos, com 5 Corridas pendentes (os 3 primeiros 
     "max_points": 348,
     "status": "Eliminado",
     "championship_probability": 0.0,
-    "expected_points": 279.4
+    "expected_points": 279.4,
+    "probability_reason": "Mesmo vencendo as 5 Sessões pendentes, chega a no máximo 348 pontos, abaixo dos 403 de Matheus."
   }
 ]
 ```
@@ -435,7 +444,8 @@ Valores após o GP dos Estados Unidos (os 2 primeiros da lista):
     "max_points": 803,
     "status": "Na disputa",
     "championship_probability": 100.0,
-    "expected_points": 740.8
+    "expected_points": 740.8,
+    "probability_reason": "Lidera com 112 pontos de vantagem sobre a Red Bull e 5 Sessões pendentes; nas simulações termina em média com 740,8 pontos, contra 595,8 da Red Bull."
   },
   {
     "position": 2,
@@ -445,7 +455,8 @@ Valores após o GP dos Estados Unidos (os 2 primeiros da lista):
     "max_points": 691,
     "status": "Na disputa",
     "championship_probability": 0.0,
-    "expected_points": 595.8
+    "expected_points": 595.8,
+    "probability_reason": "Está a 112 pontos da Visa Cash App Racing Bulls com 5 Sessões pendentes; nas simulações termina em média com 595,8 pontos, contra 740,8 da Visa Cash App Racing Bulls."
   }
 ]
 ```

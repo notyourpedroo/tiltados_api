@@ -7,6 +7,8 @@ Este módulo combina a classificação atual com as Sessões pendentes do Calend
 - Simulação (Monte Carlo): cada Sessão pendente é sorteada a partir das posições
   que cada piloto já fez em 2026, e a Chance de título é a porcentagem de
   simulações em que o piloto termina como Campeão.
+- Motivo da Chance de título: a frase que explica a situação de cada piloto ou
+  equipe, montada por templates a partir dos mesmos dados.
 """
 
 import os
@@ -145,6 +147,126 @@ def _championship_probability(points, wins, podiums, rng):
     return counts / points.shape[0] * 100
 
 
+def _format_number(value):
+    """Número no padrão brasileiro: milhar com ponto, decimal com vírgula e inteiro sem ',0'."""
+    value = float(value)
+    if value.is_integer():
+        return f"{int(value):,}".replace(",", ".")
+    return f"{value:,.1f}".replace(",", "_").replace(".", ",").replace("_", ".")
+
+
+def _count(value, singular, plural):
+    """Quantidade com a palavra no singular ou no plural: "1 ponto", "509,5 pontos"."""
+    return f"{_format_number(value)} {singular if value == 1 else plural}"
+
+
+def _ref(preposition, name, is_team):
+    """Preposição + nome do rival: "de Matheus", "da Ferrari", "com a Ferrari", "sobre a Ferrari"."""
+    if not is_team:
+        return f"{preposition} {name}"
+    return {"de": f"da {name}", "com": f"com a {name}", "sobre": f"sobre a {name}"}[preposition]
+
+
+def _tiebreak_sentence(i, names, points, wins, podiums, is_team):
+    """Frase do desempate quando a posição final empatou em pontos com o vizinho de cima (ou, senão, o de baixo)."""
+    for j, result in ((i - 1, "perdeu"), (i + 1, "venceu")):
+        if 0 <= j < len(names) and points[j] == points[i]:
+            rival = _ref("com", names[j], is_team)
+            if wins[j] != wins[i]:
+                return f"Empatou em pontos {rival} e {result} no desempate por vitórias."
+            if podiums[j] != podiums[i]:
+                return f"Empatou em pontos {rival} e {result} no desempate por pódios."
+            return f"Empatou em pontos, vitórias e pódios {rival}."
+    return ""
+
+
+def _final_reason(i, names, points, wins, podiums, is_team):
+    """Motivo sem Sessões pendentes: posição final e distância para o campeão."""
+    if i == 0:
+        text = f"Terminou a temporada em 1º, com {_count(points[0], 'ponto', 'pontos')}."
+    elif points[i] == points[0]:
+        text = f"Terminou em {i + 1}º, com {_count(points[i], 'ponto', 'pontos')}."
+    else:
+        gap = _count(points[0] - points[i], "ponto", "pontos")
+        text = f"Terminou em {i + 1}º, {gap} atrás {_ref('de', names[0], is_team)}."
+    tiebreak = _tiebreak_sentence(i, names, points, wins, podiums, is_team)
+    return f"{text} {tiebreak}" if tiebreak else text
+
+
+def _eliminated_reason(i, names, points, max_points, n_pending, is_team, team_drivers):
+    """Motivo de quem está Eliminado com Sessões pendentes: nem os Pontos máximos alcançam o líder."""
+    leader = f"abaixo dos {_format_number(points[0])} {_ref('de', names[0], is_team)}"
+    reach = f"chega a no máximo {_count(max_points[i], 'ponto', 'pontos')}, {leader}."
+    if n_pending == 1:
+        sessions, in_sessions = "a única Sessão pendente", "na única Sessão pendente"
+    else:
+        sessions, in_sessions = f"as {n_pending} Sessões pendentes", f"nas {n_pending} Sessões pendentes"
+    if not is_team:
+        return f"Mesmo vencendo {sessions}, {reach}"
+    if team_drivers[i] == 0:
+        return f"Sem nenhum piloto atual, não soma mais pontos e fica com {_format_number(points[i])}, {leader}."
+    if team_drivers[i] == 1:
+        return f"Com um único piloto, mesmo vencendo {sessions}, {reach}"
+    return f"Mesmo fazendo 1º e 2º {in_sessions}, {reach}"
+
+
+def _champion_reason(i, names, points, max_points, is_team):
+    """Motivo do Campeão antecipado: nenhum rival alcança mais os seus pontos."""
+    nobody = "Nenhuma equipe" if is_team else "Nenhum rival"
+    text = f"{nobody} alcança mais os seus {_count(points[i], 'ponto', 'pontos')}"
+    rivals = [j for j in range(len(names)) if j != i]
+    if not rivals:
+        return f"{text}."
+    closest = max(rivals, key=lambda j: max_points[j])  # no empate, o mais bem classificado
+    the_closest = "a mais próxima" if is_team else "o mais próximo"
+    return f"{text}: {the_closest}, {names[closest]}, chega a no máximo {_format_number(max_points[closest])}."
+
+
+def _contention_reason(i, names, points, expected_points, n_pending, is_team):
+    """Motivo de quem está Na disputa: só fatos (distância, Sessões pendentes e pontos médios nas simulações)."""
+    rival = 1 if i == 0 else 0
+    sessions = _count(n_pending, "Sessão pendente", "Sessões pendentes")
+    gap = int(points[0] - points[max(i, 1)])  # do líder para quem não lidera; do líder para o 2º
+    averages = (
+        f"nas simulações termina em média com {_count(expected_points[i], 'ponto', 'pontos')}, "
+        f"contra {_format_number(expected_points[rival])} {_ref('de', names[rival], is_team)}."
+    )
+    if gap == 0:
+        return f"Divide a liderança em pontos {_ref('com', names[rival], is_team)}, com {sessions}; {averages}"
+    if i == 0:
+        advantage = _count(gap, "ponto", "pontos")
+        return f"Lidera com {advantage} de vantagem {_ref('sobre', names[rival], is_team)} e {sessions}; {averages}"
+    return f"Está a {_count(gap, 'ponto', 'pontos')} {_ref('de', names[rival], is_team)} com {sessions}; {averages}"
+
+
+def _probability_reasons(rows, expected_points, n_pending, is_team, team_drivers=None):
+    """
+    Motivo da Chance de título de cada linha (pilotos ou equipes).
+
+    `rows` tem as colunas name, points, max_points, status, wins e podiums, na ordem da
+    classificação atual: a 1ª linha é o líder, o rival de referência de todos; o próprio
+    líder se compara com o 2º. `expected_points` segue a mesma ordem, e `team_drivers[i]`
+    é a quantidade de pilotos atuais da equipe i (só para equipes).
+    """
+    names = rows["name"].tolist()
+    points = rows["points"].to_numpy()
+    max_points = rows["max_points"].to_numpy()
+    wins = rows["wins"].to_numpy()
+    podiums = rows["podiums"].to_numpy()
+
+    reasons = []
+    for i, status in enumerate(rows["status"]):
+        if not n_pending:
+            reasons.append(_final_reason(i, names, points, wins, podiums, is_team))
+        elif status == "Eliminado":
+            reasons.append(_eliminated_reason(i, names, points, max_points, n_pending, is_team, team_drivers))
+        elif status == "Campeao":
+            reasons.append(_champion_reason(i, names, points, max_points, is_team))
+        else:
+            reasons.append(_contention_reason(i, names, points, expected_points, n_pending, is_team))
+    return reasons
+
+
 def _finish(df, probability, expected_points, sort_key):
     """Aplica 0/100 pelo status, arredonda e ordena pela Chance de título."""
     df["championship_probability"] = probability
@@ -166,7 +288,9 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
 
     Retorna um dict com a classificação de pilotos (`standings`), os tipos das Sessões
     pendentes (`pending`), as tabelas de pontos (`tables`), o gerador aleatório já
-    usado (`rng`) e, por simulação e piloto, `sim_points`, `sim_wins` e `sim_podiums`.
+    usado (`rng`), por piloto (na ordem da classificação) as posições sorteadas em cada
+    tipo de Sessão (`histories[is_sprint][j]`), a presença (`presence`) e a Suspensão
+    pendente (`suspended`), e, por simulação e piloto, `sim_points`, `sim_wins` e `sim_podiums`.
     """
     calendar = load_calendar(base_path=base_path)
     standings = calculate_driver_standings(base_path=base_path, base_path_2025=base_path_2025)
@@ -218,6 +342,9 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
         "pending": pending,
         "tables": tables,
         "rng": rng,
+        "histories": histories,
+        "presence": presence,
+        "suspended": suspended,
         "sim_points": sim_points,
         "sim_wins": sim_wins,
         "sim_podiums": sim_podiums,
@@ -236,6 +363,7 @@ def _driver_prediction(season):
     - status: Campeao, Na disputa ou Eliminado
     - championship_probability: Chance de título, em porcentagem (1 casa)
     - expected_points: Média dos pontos finais nas simulações
+    - probability_reason: Motivo da Chance de título (frase em PT-BR)
     """
     standings, pending, tables = season["standings"], season["pending"], season["tables"]
 
@@ -248,16 +376,21 @@ def _driver_prediction(season):
     df["status"] = _title_status(
         df["points"].to_numpy(), df["max_points"].to_numpy(), bool(pending), df["position"].to_numpy()
     )
+    expected_points = final_points.mean(axis=0)
+    df["probability_reason"] = _probability_reasons(
+        df.assign(name=df["driver_name"], wins=standings["wins"], podiums=standings["podiums"]),
+        np.round(expected_points, 1), len(pending), is_team=False,
+    )
     df = _finish(
         df,
         _championship_probability(final_points, final_wins, final_podiums, season["rng"]),
-        final_points.mean(axis=0),
+        expected_points,
         sort_key="position",
     )
 
     cols = [
         "position", "driver_id", "driver_name", "team_id", "team_name", "points",
-        "max_points", "status", "championship_probability", "expected_points"
+        "max_points", "status", "championship_probability", "expected_points", "probability_reason"
     ]
     return df[cols]
 
@@ -276,6 +409,7 @@ def _team_prediction(season, team_standings):
     - status: Campeao, Na disputa ou Eliminado
     - championship_probability: Chance de título, em porcentagem (1 casa)
     - expected_points: Média dos pontos finais nas simulações
+    - probability_reason: Motivo da Chance de título (frase em PT-BR)
     """
     pending, tables = season["pending"], season["tables"]
     current_team = season["standings"]["team_id"].to_numpy()
@@ -283,6 +417,7 @@ def _team_prediction(season, team_standings):
     # Somar os resultados simulados dos pilotos de cada equipe atual
     final = {"points": [], "wins": [], "podiums": []}
     max_points = []
+    team_drivers = []
     for team_id, points, wins, podiums in zip(
         team_standings["team_id"], team_standings["points"], team_standings["wins"], team_standings["podiums"]
     ):
@@ -291,7 +426,8 @@ def _team_prediction(season, team_standings):
         final["wins"].append(wins + season["sim_wins"][:, drivers].sum(axis=1))
         final["podiums"].append(podiums + season["sim_podiums"][:, drivers].sum(axis=1))
 
-        scoring_positions = min(int(drivers.sum()), 2)
+        team_drivers.append(int(drivers.sum()))
+        scoring_positions = min(team_drivers[-1], 2)
         max_points.append(points + int(sum(tables[is_sprint][1:scoring_positions + 1].sum() for is_sprint in pending)))
 
     final_points, final_wins, final_podiums = (np.column_stack(final[key]) for key in ("points", "wins", "podiums"))
@@ -301,15 +437,20 @@ def _team_prediction(season, team_standings):
     df["status"] = _title_status(
         df["points"].to_numpy(), df["max_points"].to_numpy(), bool(pending), df["position"].to_numpy()
     )
+    expected_points = final_points.mean(axis=0)
+    df["probability_reason"] = _probability_reasons(
+        df.assign(name=df["team_name"], wins=team_standings["wins"], podiums=team_standings["podiums"]),
+        np.round(expected_points, 1), len(pending), is_team=True, team_drivers=team_drivers,
+    )
     df = _finish(
         df,
         _championship_probability(final_points, final_wins, final_podiums, season["rng"]),
-        final_points.mean(axis=0),
+        expected_points,
         sort_key="position",
     )
 
     cols = ["position", "team_id", "team_name", "points", "max_points", "status",
-            "championship_probability", "expected_points"]
+            "championship_probability", "expected_points", "probability_reason"]
     return df[cols]
 
 
@@ -345,8 +486,12 @@ def calculate_prediction(
 if __name__ == "__main__":
     prediction = calculate_prediction()
 
-    print("\n=== CHANCE DE TITULO DE PILOTOS - TEMPORADA 2026 ===")
-    print(prediction["drivers"].to_string(index=False))
-
-    print("\n=== CHANCE DE TITULO DE CONSTRUTORES - TEMPORADA 2026 ===")
-    print(prediction["teams"].to_string(index=False))
+    for title, df, name in (
+        ("PILOTOS", prediction["drivers"], "driver_name"),
+        ("CONSTRUTORES", prediction["teams"], "team_name"),
+    ):
+        print(f"\n=== CHANCE DE TITULO DE {title} - TEMPORADA 2026 ===")
+        print(df.drop(columns="probability_reason").to_string(index=False))
+        print("\nMotivos:")
+        for row_name, reason in zip(df[name], df["probability_reason"]):
+            print(f"- {row_name}: {reason}")

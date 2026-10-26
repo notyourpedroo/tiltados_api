@@ -49,6 +49,10 @@ Piloto ou equipe cujos Pontos máximos são menores que os pontos atuais do líd
 A estimativa, em porcentagem, de um piloto ou equipe terminar como campeão, obtida simulando as Sessões pendentes.
 _Avoid_: odds, probabilidade de campeão
 
+**Motivo da Chance de título**:
+A frase que explica por que um piloto ou equipe tem a sua Chance de título: pela matemática, quando já é Campeão ou Eliminado, ou pela simulação, quando ainda está na disputa. No dia a dia, só "Motivo".
+_Avoid_: justificativa, explicação
+
 ## Superlicença
 
 **Superlicença**:

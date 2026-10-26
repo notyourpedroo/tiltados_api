@@ -1,10 +1,12 @@
 """Chance de título de 2026: situação matemática e simulação das Sessões pendentes."""
 
 import csv
+import re
 
 from conftest import reset_2026_season, write_calendar, write_session
 
 DRIVERS = "/load/2026/prediction/drivers"
+TEAMS = "/load/2026/prediction/teams"
 TEAM = "Red Bull"
 # Locais do LOCATION_MAP usados nas temporadas sintéticas
 PLAYED = ["australia", "china", "japao", "bahrein", "arabia_saudita", "miami"]
@@ -12,7 +14,7 @@ PENDING = ["mexico", "brasil", "las_vegas", "catar", "abu_dhabi"]
 
 DRIVER_FIELDS = {
     "position", "driver_id", "driver_name", "team_id", "team_name", "points",
-    "max_points", "status", "championship_probability", "expected_points",
+    "max_points", "status", "championship_probability", "expected_points", "probability_reason",
 }
 
 
@@ -63,6 +65,60 @@ def test_pilotos_trazem_situacao_e_chance_de_titulo(client):
             assert row["championship_probability"] == 0
 
 
+def test_motivo_do_piloto_eliminado(client):
+    # Douglas 223 + 5 x 25 = 348, abaixo dos 403 do líder Matheus
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Douglas"]["probability_reason"] == (
+        "Mesmo vencendo as 5 Sessões pendentes, chega a no máximo 348 pontos, abaixo dos 403 de Matheus."
+    )
+
+
+def test_todo_piloto_e_toda_equipe_tem_motivo(client):
+    for route in (DRIVERS, TEAMS):
+        rows = client.get(route).json()
+        assert rows and all(row["probability_reason"].strip() for row in rows)
+
+
+AVERAGES = r"nas simulações termina em média com \d+(,\d)? pontos?, contra \d+(,\d)? (de|da) [A-Za-z ]+\.$"
+
+
+def test_motivo_na_disputa_traz_distancia_sessoes_pendentes_e_pontos_medios(client, data_dir):
+    # Bia 18 + 25 = 43 lidera; Ana 25 + 15 = 40; Caio 15 + 18 = 33
+    season(data_dir, [["Ana", "Bia", "Caio"], ["Bia", "Caio", "Ana"]], pending=3)
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Bia"]["probability_reason"].startswith(
+        "Lidera com 3 pontos de vantagem sobre Ana e 3 Sessões pendentes; ")
+    assert rows["Ana"]["probability_reason"].startswith("Está a 3 pontos de Bia com 3 Sessões pendentes; ")
+    assert rows["Caio"]["probability_reason"].startswith("Está a 10 pontos de Bia com 3 Sessões pendentes; ")
+    for row in rows.values():
+        assert re.search("; " + AVERAGES, row["probability_reason"]), row["probability_reason"]
+
+
+def test_motivo_na_disputa_no_singular(client, data_dir):
+    # Bia 18 + 18 = 36 lidera; Ana 25 + 10 = 35
+    season(data_dir, [["Ana", "Bia", "Dani"], ["Caio", "Bia", "Dani", "Edu", "Ana"]], pending=1)
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Bia"]["probability_reason"].startswith(
+        "Lidera com 1 ponto de vantagem sobre Ana e 1 Sessão pendente; ")
+    assert rows["Ana"]["probability_reason"].startswith("Está a 1 ponto de Bia com 1 Sessão pendente; ")
+
+
+def test_motivo_da_equipe_na_disputa(client, data_dir):
+    # Ferrari 25 + 15 + 18 + 15 = 73 lidera; Williams 18 + 12 + 25 + 12 = 67
+    teams = {"Ana": "Ferrari", "Bia": "Ferrari", "Caio": "Williams", "Dani": "Williams"}
+    season(data_dir, [["Ana", "Caio", "Bia", "Dani"], ["Caio", "Ana", "Bia", "Dani"]], pending=3, teams=teams)
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows["Ferrari"]["probability_reason"].startswith(
+        "Lidera com 6 pontos de vantagem sobre a Williams e 3 Sessões pendentes; ")
+    assert rows["Williams"]["probability_reason"].startswith("Está a 6 pontos da Ferrari com 3 Sessões pendentes; ")
+    for row in rows.values():
+        assert re.search("; " + AVERAGES, row["probability_reason"]), row["probability_reason"]
+
+
 def test_chances_de_titulo_somam_100(client, data_dir):
     season(data_dir, [["Ana", "Bia", "Caio"], ["Bia", "Caio", "Ana"], ["Caio", "Ana", "Bia"]], pending=3)
     rows = client.get(DRIVERS).json()
@@ -87,6 +143,40 @@ def test_sem_sessoes_pendentes_o_lider_e_campeao(client, data_dir):
         assert row["max_points"] == row["points"] == row["expected_points"]
         if row["driver_name"] != "Matheus":
             assert row["status"] == "Eliminado"
+    # Matheus 403, Yohan 314, Douglas 223
+    assert rows["Matheus"]["probability_reason"] == "Terminou a temporada em 1º, com 403 pontos."
+    assert rows["Yohan"]["probability_reason"] == "Terminou em 2º, 89 pontos atrás de Matheus."
+    assert rows["Douglas"]["probability_reason"] == "Terminou em 3º, 180 pontos atrás de Matheus."
+
+
+def test_motivo_de_posicao_final_decidida_no_desempate_por_vitorias(client, data_dir):
+    # Caio 18 + 25 = 43; Ana 25 + 8 = 33 com 1 vitória; Bia 15 + 18 = 33 sem vitória
+    season(data_dir, [["Ana", "Caio", "Bia", "Dani", "Edu", "Fabi"],
+                      ["Caio", "Bia", "Dani", "Edu", "Fabi", "Ana"]], pending=0)
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Caio"]["probability_reason"] == "Terminou a temporada em 1º, com 43 pontos."
+    assert rows["Ana"]["probability_reason"] == (
+        "Terminou em 2º, 10 pontos atrás de Caio. Empatou em pontos com Bia e venceu no desempate por vitórias."
+    )
+    assert rows["Bia"]["probability_reason"] == (
+        "Terminou em 3º, 10 pontos atrás de Caio. Empatou em pontos com Ana e perdeu no desempate por vitórias."
+    )
+
+
+def test_motivo_do_campeao_decidido_no_desempate_por_podios(client, data_dir):
+    # Ana 25 + 18 + 0 = 43 com 1 vitória e 2 pódios; Bia 10 + 25 + 8 = 43 com 1 vitória e 1 pódio
+    season(data_dir, [["Ana", "Caio", "Dani", "Edu", "Bia", "Fabi"],
+                      ["Bia", "Ana", "Caio", "Dani", "Edu", "Fabi"],
+                      ["Gil", "Hugo", "Ivo", "Jo", "Ka", "Bia", "Ana"]], pending=0)
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Ana"]["probability_reason"] == (
+        "Terminou a temporada em 1º, com 43 pontos. Empatou em pontos com Bia e venceu no desempate por pódios."
+    )
+    assert rows["Bia"]["probability_reason"] == (
+        "Terminou em 2º, com 43 pontos. Empatou em pontos com Ana e perdeu no desempate por pódios."
+    )
 
 
 def test_empate_exato_nos_pontos_maximos_mantem_na_disputa(client, data_dir):
@@ -109,11 +199,25 @@ def test_vantagem_maior_que_os_pontos_maximos_garante_o_titulo(client, data_dir)
     assert rows["Bia"]["max_points"] == 97
 
 
+def test_motivo_do_campeao_antecipado(client, data_dir):
+    # 4 Corridas: Ana 100, Bia 72 (no máximo 97), Caio 60 (no máximo 85)
+    season(data_dir, [["Ana", "Bia", "Caio"]] * 4, pending=1)
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Ana"]["probability_reason"] == (
+        "Nenhum rival alcança mais os seus 100 pontos: o mais próximo, Bia, chega a no máximo 97."
+    )
+    assert rows["Bia"]["probability_reason"] == (
+        "Mesmo vencendo a única Sessão pendente, chega a no máximo 97 pontos, abaixo dos 100 de Ana."
+    )
+
+
 def test_mesmos_dados_dao_a_mesma_resposta(client, data_dir):
     season(data_dir, [["Ana", "Bia", "Caio"], ["Bia", "Caio", "Ana"]], pending=3)
     first = client.get(DRIVERS).json()
     write_calendar(data_dir, calendar_rows(data_dir))  # mesmo conteúdo: invalida o cache e recalcula
-    assert client.get(DRIVERS).json() == first
+    assert all(row["probability_reason"] for row in first)
+    assert client.get(DRIVERS).json() == first  # inclusive o Motivo
 
 
 def test_resultado_novo_atualiza_a_chance_de_titulo(client, data_dir):
@@ -130,11 +234,9 @@ def test_resultado_novo_atualiza_a_chance_de_titulo(client, data_dir):
     assert after["Matheus"]["max_points"] == before["Matheus"]["max_points"] - 25
 
 
-TEAMS = "/load/2026/prediction/teams"
-
 TEAM_FIELDS = {
     "position", "team_id", "team_name", "points", "max_points", "status",
-    "championship_probability", "expected_points",
+    "championship_probability", "expected_points", "probability_reason",
 }
 
 
@@ -153,6 +255,51 @@ def test_equipes_trazem_situacao_e_chance_de_titulo(client):
         assert rows[name]["status"] == "Eliminado"
         assert rows[name]["championship_probability"] == 0
     assert abs(sum(row["championship_probability"] for row in rows.values()) - 100) <= 0.2
+
+
+def test_motivo_da_equipe_eliminada(client, data_dir):
+    # 6 Corridas: Ferrari 6 x (25 + 18) = 258; Williams 6 x (15 + 12) = 162, que chega no máximo a 162 + 2 x 43 = 248
+    teams = {"Ana": "Ferrari", "Bia": "Ferrari", "Caio": "Williams", "Dani": "Williams"}
+    season(data_dir, [["Ana", "Bia", "Caio", "Dani"]] * 6, pending=2, teams=teams)
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows["Williams"]["probability_reason"] == (
+        "Mesmo fazendo 1º e 2º nas 2 Sessões pendentes, chega a no máximo 248 pontos, abaixo dos 258 da Ferrari."
+    )
+
+
+def test_motivo_da_equipe_eliminada_com_uma_unica_sessao_pendente(client, data_dir):
+    # 3 Corridas: Ferrari 3 x 43 = 129; Williams 3 x 27 = 81, que chega no máximo a 81 + 43 = 124
+    teams = {"Ana": "Ferrari", "Bia": "Ferrari", "Caio": "Williams", "Dani": "Williams"}
+    season(data_dir, [["Ana", "Bia", "Caio", "Dani"]] * 3, pending=1, teams=teams)
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows["Williams"]["probability_reason"] == (
+        "Mesmo fazendo 1º e 2º na única Sessão pendente, chega a no máximo 124 pontos, abaixo dos 129 da Ferrari."
+    )
+
+
+def test_motivo_da_equipe_campea_antecipada(client, data_dir):
+    # Mesmo cenário: Ferrari 129; a Williams chega no máximo a 124
+    teams = {"Ana": "Ferrari", "Bia": "Ferrari", "Caio": "Williams", "Dani": "Williams"}
+    season(data_dir, [["Ana", "Bia", "Caio", "Dani"]] * 3, pending=1, teams=teams)
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows["Ferrari"]["probability_reason"] == (
+        "Nenhuma equipe alcança mais os seus 129 pontos: a mais próxima, Williams, chega a no máximo 124."
+    )
+
+
+def test_motivo_da_equipe_eliminada_com_um_unico_piloto(client, data_dir):
+    # 2 Corridas: Ferrari 2 x 43 = 86; Williams só tem o Caio: 2 x 15 = 30, no máximo 30 + 2 x 25 = 80
+    teams = {"Ana": "Ferrari", "Bia": "Ferrari", "Caio": "Williams"}
+    season(data_dir, [["Ana", "Bia", "Caio"]] * 2, pending=2, teams=teams)
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows["Williams"]["probability_reason"] == (
+        "Com um único piloto, mesmo vencendo as 2 Sessões pendentes, chega a no máximo 80 pontos, "
+        "abaixo dos 86 da Ferrari."
+    )
 
 
 def test_equipe_com_um_unico_piloto_soma_so_o_1o_lugar(client, data_dir):
@@ -187,6 +334,10 @@ def test_construtores_sem_sessoes_pendentes(client, data_dir):
     assert rows[0]["status"] == "Campeao" and rows[0]["championship_probability"] == 100
     assert all(row["status"] == "Eliminado" for row in rows[1:])
     assert all(row["max_points"] == row["points"] == row["expected_points"] for row in rows)
+    # Racing Bulls 588 x Red Bull 476
+    assert rows[0]["probability_reason"] == "Terminou a temporada em 1º, com 588 pontos."
+    assert rows[1]["team_name"] == "Red Bull"
+    assert rows[1]["probability_reason"] == "Terminou em 2º, 112 pontos atrás da Visa Cash App Racing Bulls."
 
 
 def test_construtores_mesmos_dados_dao_a_mesma_resposta(client, data_dir):
@@ -194,7 +345,8 @@ def test_construtores_mesmos_dados_dao_a_mesma_resposta(client, data_dir):
     season(data_dir, [["Ana", "Bia", "Caio"], ["Bia", "Caio", "Ana"]], pending=3, teams=teams)
     first = client.get(TEAMS).json()
     write_calendar(data_dir, calendar_rows(data_dir))
-    assert client.get(TEAMS).json() == first
+    assert all(row["probability_reason"] for row in first)
+    assert client.get(TEAMS).json() == first  # inclusive o Motivo
 
 
 def test_piloto_que_falta_a_corridas_corre_menos_na_simulacao(client, data_dir):
