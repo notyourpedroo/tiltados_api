@@ -213,7 +213,11 @@ O parâmetro `{season}` aceita os valores `2025` ou `2026`.
   - Sem Sessões pendentes: a posição final e a distância para o campeão. Se a posição foi decidida no desempate, diz com quem empatou em pontos e se ganhou ou perdeu por vitórias ou por pódios.
   - `Eliminado`: os Pontos máximos (vencendo todas as Sessões pendentes; para equipes, fazendo 1º e 2º, ou só vencendo, com um único piloto) abaixo dos pontos do líder.
   - `Campeao` antes da última Sessão: nenhum rival alcança mais os seus pontos, com os Pontos máximos do mais próximo.
-  - `Na disputa`: a distância para o líder (ou, para o líder, a vantagem sobre o 2º), as Sessões pendentes e os pontos médios nas simulações, os seus e os do rival.
+  - `Na disputa`, do caso mais específico para o mais geral:
+    - Pontos máximos exatamente iguais aos pontos do líder: só alcança o líder vencendo todas as Sessões pendentes (para equipes, fazendo 1º e 2º, ou só vencendo, com um único piloto) e ainda dependeria do desempate (vitórias, depois pódios).
+    - Chance de título exibida como 0,0 (quem não lidera): quase nunca é campeão nas simulações, com os pontos que precisaria tirar do líder nas Sessões pendentes.
+    - Chance de título exibida como 100,0 (o líder, ainda sem ser `Campeao`): é campeão em quase todas as simulações, com os pontos que o 2º precisaria tirar nas Sessões pendentes.
+    - Os demais: a distância para o líder (ou, para o líder, a vantagem sobre o 2º), as Sessões pendentes e os pontos médios nas simulações, os seus e os do rival.
   - Só para quem está `Na disputa`, depois da frase principal, entram as frases dos fatores que mexem na porcentagem sem aparecer no JSON: primeiro a Suspensão ("Fica fora da próxima Corrida por Suspensão."; na equipe, citando os pilotos atuais suspensos: "Ana fica fora da próxima Corrida por Suspensão.") e depois, só para pilotos, a presença abaixo de 100% ("Disputou 12 das 18 Corridas, então nas simulações corre só parte das Sessões pendentes.", com "Sessões" no lugar de "Corridas" para quem só correu Sprints). `Campeao` e `Eliminado` não recebem essas frases, porque elas não mudam a situação.
   - Os números do texto seguem o padrão brasileiro ("10.000", "509,5", "6º"); os campos numéricos do JSON não mudam.
 
@@ -397,7 +401,7 @@ Valores após o GP dos Estados Unidos, com 5 Corridas pendentes (os 3 primeiros 
     "status": "Na disputa",
     "championship_probability": 100.0,
     "expected_points": 509.5,
-    "probability_reason": "Lidera com 89 pontos de vantagem sobre Yohan e 5 Sessões pendentes; nas simulações termina em média com 509,5 pontos, contra 394,3 de Yohan."
+    "probability_reason": "Ainda não é Campeão pela matemática, mas é campeão em quase todas as 10.000 simulações: Yohan precisaria tirar 89 pontos em 5 Sessões pendentes."
   },
   {
     "position": 2,
@@ -410,7 +414,7 @@ Valores após o GP dos Estados Unidos, com 5 Corridas pendentes (os 3 primeiros 
     "status": "Na disputa",
     "championship_probability": 0.0,
     "expected_points": 394.3,
-    "probability_reason": "Está a 89 pontos de Matheus com 5 Sessões pendentes; nas simulações termina em média com 394,3 pontos, contra 509,5 de Matheus."
+    "probability_reason": "Ainda está na disputa pela matemática, mas quase nunca é campeão nas 10.000 simulações: precisaria tirar 89 pontos de Matheus em 5 Sessões pendentes."
   },
   {
     "position": 3,
@@ -446,7 +450,7 @@ Valores após o GP dos Estados Unidos (os 2 primeiros da lista):
     "status": "Na disputa",
     "championship_probability": 100.0,
     "expected_points": 740.8,
-    "probability_reason": "Lidera com 112 pontos de vantagem sobre a Red Bull e 5 Sessões pendentes; nas simulações termina em média com 740,8 pontos, contra 595,8 da Red Bull."
+    "probability_reason": "Ainda não é Campeã de Construtores pela matemática, mas é campeã em quase todas as 10.000 simulações: a Red Bull precisaria tirar 112 pontos em 5 Sessões pendentes."
   },
   {
     "position": 2,
@@ -457,7 +461,7 @@ Valores após o GP dos Estados Unidos (os 2 primeiros da lista):
     "status": "Na disputa",
     "championship_probability": 0.0,
     "expected_points": 595.8,
-    "probability_reason": "Está a 112 pontos da Visa Cash App Racing Bulls com 5 Sessões pendentes; nas simulações termina em média com 595,8 pontos, contra 740,8 da Visa Cash App Racing Bulls."
+    "probability_reason": "Ainda está na disputa pela matemática, mas quase nunca é campeã nas 10.000 simulações: precisaria tirar 112 pontos da Visa Cash App Racing Bulls em 5 Sessões pendentes."
   }
 ]
 ```

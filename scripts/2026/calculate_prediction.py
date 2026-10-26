@@ -193,14 +193,18 @@ def _final_reason(i, names, points, wins, podiums, is_team):
     return f"{text} {tiebreak}" if tiebreak else text
 
 
+def _pending_sessions(n_pending):
+    """As Sessões pendentes com artigo: ("as 5 Sessões pendentes", "nas 5 Sessões pendentes") ou "a única"."""
+    if n_pending == 1:
+        return "a única Sessão pendente", "na única Sessão pendente"
+    return f"as {n_pending} Sessões pendentes", f"nas {n_pending} Sessões pendentes"
+
+
 def _eliminated_reason(i, names, points, max_points, n_pending, is_team, team_drivers):
     """Motivo de quem está Eliminado com Sessões pendentes: nem os Pontos máximos alcançam o líder."""
     leader = f"abaixo dos {_format_number(points[0])} {_ref('de', names[0], is_team)}"
     reach = f"chega a no máximo {_count(max_points[i], 'ponto', 'pontos')}, {leader}."
-    if n_pending == 1:
-        sessions, in_sessions = "a única Sessão pendente", "na única Sessão pendente"
-    else:
-        sessions, in_sessions = f"as {n_pending} Sessões pendentes", f"nas {n_pending} Sessões pendentes"
+    sessions, in_sessions = _pending_sessions(n_pending)
     if not is_team:
         return f"Mesmo vencendo {sessions}, {reach}"
     if team_drivers[i] == 0:
@@ -239,21 +243,78 @@ def _contention_reason(i, names, points, expected_points, n_pending, is_team):
     return f"Está a {_count(gap, 'ponto', 'pontos')} {_ref('de', names[rival], is_team)} com {sessions}; {averages}"
 
 
-def _probability_reasons(rows, expected_points, n_pending, is_team, team_drivers=None):
+def _exact_tie_reason(i, names, n_pending, is_team, team_drivers):
+    """Motivo de quem tem Pontos máximos iguais aos pontos do líder: só alcança vencendo tudo e indo ao desempate."""
+    sessions, in_sessions = _pending_sessions(n_pending)
+    if is_team and team_drivers[i] >= 2:
+        needs = f"fazendo 1º e 2º {in_sessions}"
+    else:
+        needs = f"vencendo {sessions}"
+    leader = names[0] if not is_team else f"a {names[0]}"
+    return f"Só alcança {leader} {needs}, e ainda dependeria do desempate (vitórias, depois pódios)."
+
+
+def _in_pending_sessions(n_pending):
+    """Em quantas Sessões pendentes: "em 5 Sessões pendentes" ou "na única Sessão pendente"."""
+    return _pending_sessions(n_pending)[1] if n_pending == 1 else f"em {n_pending} Sessões pendentes"
+
+
+def _zero_chance_reason(i, names, points, n_pending, n_simulations, is_team):
+    """Motivo de quem está Na disputa com Chance de título exibida como 0,0: a distância para o líder."""
+    champion = "campeã" if is_team else "campeão"
+    gap = _count(points[0] - points[i], "ponto", "pontos")
+    return (
+        f"Ainda está na disputa pela matemática, mas quase nunca é {champion} nas "
+        f"{_format_number(n_simulations)} simulações: precisaria tirar {gap} {_ref('de', names[0], is_team)} "
+        f"{_in_pending_sessions(n_pending)}."
+    )
+
+
+def _full_chance_reason(names, points, n_pending, n_simulations, is_team):
+    """Motivo do líder Na disputa com Chance de título exibida como 100,0: o que o 2º precisaria tirar."""
+    if is_team:
+        not_yet, champion, runner_up = "Campeã de Construtores", "campeã", f"a {names[1]}"
+    else:
+        not_yet, champion, runner_up = "Campeão", "campeão", names[1]
+    gap = _count(points[0] - points[1], "ponto", "pontos")
+    return (
+        f"Ainda não é {not_yet} pela matemática, mas é {champion} em quase todas as "
+        f"{_format_number(n_simulations)} simulações: {runner_up} precisaria tirar {gap} "
+        f"{_in_pending_sessions(n_pending)}."
+    )
+
+
+def _contention_main_reason(
+    i, names, points, max_points, expected_points, probability, n_pending, n_simulations, is_team, team_drivers
+):
+    """Frase principal do Motivo de quem está Na disputa, do caso mais específico para o texto intermediário."""
+    if points[i] < points[0] == max_points[i]:
+        return _exact_tie_reason(i, names, n_pending, is_team, team_drivers)
+    if i > 0 and probability[i] == 0 and points[i] < points[0]:
+        return _zero_chance_reason(i, names, points, n_pending, n_simulations, is_team)
+    if i == 0 and probability[0] == 100 and points[0] > points[1]:
+        return _full_chance_reason(names, points, n_pending, n_simulations, is_team)
+    return _contention_reason(i, names, points, expected_points, n_pending, is_team)
+
+
+def _probability_reasons(rows, expected_points, n_pending, is_team, team_drivers=None, n_simulations=N_SIMULATIONS):
     """
     Motivo da Chance de título de cada linha (pilotos ou equipes).
 
-    `rows` tem as colunas name, points, max_points, status, wins, podiums e extra, na ordem da
-    classificação atual: a 1ª linha é o líder, o rival de referência de todos; o próprio
-    líder se compara com o 2º. `extra` são as frases extras (Suspensão, presença), que só
-    entram depois da frase principal de quem está Na disputa. `expected_points` segue a
-    mesma ordem, e `team_drivers[i]` é a quantidade de pilotos atuais da equipe i (só para equipes).
+    `rows` tem as colunas name, points, max_points, status, wins, podiums, probability
+    (a Chance de título como exibida) e extra, na ordem da classificação atual: a 1ª linha
+    é o líder, o rival de referência de todos; o próprio líder se compara com o 2º.
+    `extra` são as frases extras (Suspensão, presença), que só entram depois da frase
+    principal de quem está Na disputa. `expected_points` segue a mesma ordem,
+    `team_drivers[i]` é a quantidade de pilotos atuais da equipe i (só para equipes) e
+    `n_simulations` é a quantidade de simulações.
     """
     names = rows["name"].tolist()
     points = rows["points"].to_numpy()
     max_points = rows["max_points"].to_numpy()
     wins = rows["wins"].to_numpy()
     podiums = rows["podiums"].to_numpy()
+    probability = rows["probability"].to_numpy()
 
     reasons = []
     for i, status in enumerate(rows["status"]):
@@ -264,7 +325,10 @@ def _probability_reasons(rows, expected_points, n_pending, is_team, team_drivers
         elif status == "Campeao":
             reasons.append(_champion_reason(i, names, points, max_points, is_team))
         else:
-            reasons.append(_contention_reason(i, names, points, expected_points, n_pending, is_team))
+            reasons.append(_contention_main_reason(
+                i, names, points, max_points, expected_points, probability, n_pending, n_simulations,
+                is_team, team_drivers,
+            ))
 
     # Frases extras (Suspensão, presença) só para quem está Na disputa, depois da frase principal
     return [
@@ -301,12 +365,16 @@ def _team_extras(team_ids, standings, suspended):
     return extras
 
 
+def _displayed_probability(status, probability):
+    """Chance de título como exibida: 0 para Eliminado, 100 para Campeao e arredondada a 1 casa."""
+    status = np.asarray(status)
+    probability = np.where(status == "Eliminado", 0.0, np.where(status == "Campeao", 100.0, probability))
+    return np.round(probability, 1)
+
+
 def _finish(df, probability, expected_points, sort_key):
     """Aplica 0/100 pelo status, arredonda e ordena pela Chance de título."""
-    df["championship_probability"] = probability
-    df.loc[df["status"] == "Eliminado", "championship_probability"] = 0.0
-    df.loc[df["status"] == "Campeao", "championship_probability"] = 100.0
-    df["championship_probability"] = df["championship_probability"].round(1)
+    df["championship_probability"] = _displayed_probability(df["status"], probability)
     df["expected_points"] = np.round(expected_points, 1)
 
     df = df.sort_values(
@@ -414,17 +482,14 @@ def _driver_prediction(season):
         df["points"].to_numpy(), df["max_points"].to_numpy(), bool(pending), df["position"].to_numpy()
     )
     expected_points = final_points.mean(axis=0)
+    probability = _championship_probability(final_points, final_wins, final_podiums, season["rng"])
     df["probability_reason"] = _probability_reasons(
         df.assign(name=df["driver_name"], wins=standings["wins"], podiums=standings["podiums"],
+                  probability=_displayed_probability(df["status"], probability),
                   extra=_driver_extras(season["suspended"], season["presence_counts"])),
-        np.round(expected_points, 1), len(pending), is_team=False,
+        np.round(expected_points, 1), len(pending), is_team=False, n_simulations=len(final_points),
     )
-    df = _finish(
-        df,
-        _championship_probability(final_points, final_wins, final_podiums, season["rng"]),
-        expected_points,
-        sort_key="position",
-    )
+    df = _finish(df, probability, expected_points, sort_key="position")
 
     cols = [
         "position", "driver_id", "driver_name", "team_id", "team_name", "points",
@@ -476,17 +541,15 @@ def _team_prediction(season, team_standings):
         df["points"].to_numpy(), df["max_points"].to_numpy(), bool(pending), df["position"].to_numpy()
     )
     expected_points = final_points.mean(axis=0)
+    probability = _championship_probability(final_points, final_wins, final_podiums, season["rng"])
     df["probability_reason"] = _probability_reasons(
         df.assign(name=df["team_name"], wins=team_standings["wins"], podiums=team_standings["podiums"],
+                  probability=_displayed_probability(df["status"], probability),
                   extra=_team_extras(df["team_id"], season["standings"], season["suspended"])),
         np.round(expected_points, 1), len(pending), is_team=True, team_drivers=team_drivers,
+        n_simulations=len(final_points),
     )
-    df = _finish(
-        df,
-        _championship_probability(final_points, final_wins, final_podiums, season["rng"]),
-        expected_points,
-        sort_key="position",
-    )
+    df = _finish(df, probability, expected_points, sort_key="position")
 
     cols = ["position", "team_id", "team_name", "points", "max_points", "status",
             "championship_probability", "expected_points", "probability_reason"]

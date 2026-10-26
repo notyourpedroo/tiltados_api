@@ -186,6 +186,65 @@ def test_empate_exato_nos_pontos_maximos_mantem_na_disputa(client, data_dir):
 
     assert rows["Bia"]["max_points"] == rows["Ana"]["points"] == 43
     assert rows["Bia"]["status"] == "Na disputa"
+    assert rows["Bia"]["probability_reason"] == (
+        "Só alcança Ana vencendo a única Sessão pendente, e ainda dependeria do desempate (vitórias, depois pódios)."
+    )
+
+
+def test_motivo_do_empate_exato_nos_pontos_maximos_com_varias_sessoes_pendentes(client, data_dir):
+    # Ana venceu as 2 Corridas: 50; Bia chegou em 7º nas duas: 0, que com 2 Corridas chega a 50
+    season(data_dir, [["Ana", "Caio", "Dani", "Edu", "Fabi", "Gil", "Bia"]] * 2, pending=2)
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Bia"]["probability_reason"] == (
+        "Só alcança Ana vencendo as 2 Sessões pendentes, e ainda dependeria do desempate (vitórias, depois pódios)."
+    )
+
+
+def test_motivo_de_quem_esta_na_disputa_com_chance_de_titulo_zero(client, data_dir):
+    # 3 Corridas: Ana 75 (vence sempre, sem faltar), Bia 54 (no máximo 104), Caio 45 (no máximo 95).
+    # Ana vence as 2 Corridas pendentes em toda simulação: Bia e Caio têm 0% sem estar Eliminados
+    season(data_dir, [["Ana", "Bia", "Caio"]] * 3, pending=2)
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Bia"]["status"] == rows["Caio"]["status"] == "Na disputa"
+    assert rows["Bia"]["championship_probability"] == rows["Caio"]["championship_probability"] == 0
+    assert rows["Bia"]["probability_reason"] == (
+        "Ainda está na disputa pela matemática, mas quase nunca é campeão nas 10.000 simulações: "
+        "precisaria tirar 21 pontos de Ana em 2 Sessões pendentes."
+    )
+    assert rows["Caio"]["probability_reason"] == (
+        "Ainda está na disputa pela matemática, mas quase nunca é campeão nas 10.000 simulações: "
+        "precisaria tirar 30 pontos de Ana em 2 Sessões pendentes."
+    )
+
+
+def test_motivo_do_lider_na_disputa_com_chance_de_titulo_100(client, data_dir):
+    # Mesmo cenário: Ana 75 não é Campeão (Bia chega a 104), mas vence as 2 Corridas pendentes em toda simulação
+    season(data_dir, [["Ana", "Bia", "Caio"]] * 3, pending=2)
+    ana = by_name(client.get(DRIVERS).json())["Ana"]
+
+    assert ana["status"] == "Na disputa"
+    assert ana["championship_probability"] == 100
+    assert ana["probability_reason"] == (
+        "Ainda não é Campeão pela matemática, mas é campeão em quase todas as 10.000 simulações: "
+        "Bia precisaria tirar 21 pontos em 2 Sessões pendentes."
+    )
+
+
+def test_motivo_das_chances_de_titulo_0_e_100_com_uma_unica_sessao_pendente(client, data_dir):
+    # 3 Corridas: Ana 75 (vence sempre), Bia 54, que com mais uma Corrida chega a 79
+    season(data_dir, [["Ana", "Bia", "Caio"]] * 3, pending=1)
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Ana"]["probability_reason"] == (
+        "Ainda não é Campeão pela matemática, mas é campeão em quase todas as 10.000 simulações: "
+        "Bia precisaria tirar 21 pontos na única Sessão pendente."
+    )
+    assert rows["Bia"]["probability_reason"] == (
+        "Ainda está na disputa pela matemática, mas quase nunca é campeão nas 10.000 simulações: "
+        "precisaria tirar 21 pontos de Ana na única Sessão pendente."
+    )
 
 
 def test_vantagem_maior_que_os_pontos_maximos_garante_o_titulo(client, data_dir):
@@ -299,6 +358,54 @@ def test_motivo_da_equipe_eliminada_com_um_unico_piloto(client, data_dir):
     assert rows["Williams"]["probability_reason"] == (
         "Com um único piloto, mesmo vencendo as 2 Sessões pendentes, chega a no máximo 80 pontos, "
         "abaixo dos 86 da Ferrari."
+    )
+
+
+def test_motivo_das_equipes_na_disputa_com_chances_de_titulo_0_e_100(client, data_dir):
+    # 3 Corridas com Ana e Bia (Ferrari) sempre em 1º e 2º: Ferrari 3 x 43 = 129;
+    # Williams 3 x (15 + 12) = 81, no máximo 81 + 2 x 43 = 167. A Ferrari faz 1º e 2º em toda simulação
+    teams = {"Ana": "Ferrari", "Bia": "Ferrari", "Caio": "Williams", "Dani": "Williams"}
+    season(data_dir, [["Ana", "Bia", "Caio", "Dani"]] * 3, pending=2, teams=teams)
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows["Ferrari"]["status"] == rows["Williams"]["status"] == "Na disputa"
+    assert rows["Ferrari"]["championship_probability"] == 100
+    assert rows["Williams"]["championship_probability"] == 0
+    assert rows["Ferrari"]["probability_reason"] == (
+        "Ainda não é Campeã de Construtores pela matemática, mas é campeã em quase todas as 10.000 simulações: "
+        "a Williams precisaria tirar 48 pontos em 2 Sessões pendentes."
+    )
+    assert rows["Williams"]["probability_reason"] == (
+        "Ainda está na disputa pela matemática, mas quase nunca é campeã nas 10.000 simulações: "
+        "precisaria tirar 48 pontos da Ferrari em 2 Sessões pendentes."
+    )
+
+
+FILLER_TEAMS = {"Edu": "Mclaren", "Fabi": "Haas", "Gil": "Alpine", "Hugo": "Audi", "Ivo": "Sauber"}
+
+
+def test_motivo_da_equipe_com_empate_exato_nos_pontos_maximos(client, data_dir):
+    # Ferrari 25 + 18 = 43; Williams com Caio e Dani em 7º e 8º: 0, que com 1º e 2º chega a 43
+    teams = {"Ana": "Ferrari", "Bia": "Ferrari", "Caio": "Williams", "Dani": "Williams", **FILLER_TEAMS}
+    season(data_dir, [["Ana", "Bia", "Edu", "Fabi", "Gil", "Hugo", "Caio", "Dani"]], pending=1, teams=teams)
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows["Williams"]["max_points"] == rows["Ferrari"]["points"] == 43
+    assert rows["Williams"]["probability_reason"] == (
+        "Só alcança a Ferrari fazendo 1º e 2º na única Sessão pendente, "
+        "e ainda dependeria do desempate (vitórias, depois pódios)."
+    )
+
+
+def test_motivo_da_equipe_com_um_unico_piloto_e_empate_exato_nos_pontos_maximos(client, data_dir):
+    # Ferrari: Ana 1º (25) e Bia 7º (0) = 25; Williams só tem o Caio, em 8º: 0, que vencendo chega a 25
+    teams = {"Ana": "Ferrari", "Bia": "Ferrari", "Caio": "Williams", **FILLER_TEAMS}
+    season(data_dir, [["Ana", "Edu", "Fabi", "Gil", "Hugo", "Ivo", "Bia", "Caio"]], pending=1, teams=teams)
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows["Williams"]["max_points"] == rows["Ferrari"]["points"] == 25
+    assert rows["Williams"]["probability_reason"] == (
+        "Só alcança a Ferrari vencendo a única Sessão pendente, e ainda dependeria do desempate (vitórias, depois pódios)."
     )
 
 
