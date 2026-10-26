@@ -36,7 +36,7 @@ O piloto em 1º na classificação de pilotos depois da última Sessão do Calen
 _Avoid_: vencedor da temporada
 
 **Campeão de Construtores**:
-A equipe em 1º na classificação de construtores depois da última Sessão do Calendário, com o mesmo desempate do Campeão. Passa a ser chamada assim que nenhuma rival alcança mais os seus pontos.
+A equipe em 1º na classificação de construtores depois da última Sessão do Calendário, com o mesmo desempate do Campeão. Passa a ser chamada assim que nenhuma rival alcança mais os seus pontos. Numa frase sobre a equipe, concorda com ela: "Campeã de Construtores", "campeã".
 
 **Pontos máximos**:
 Os pontos atuais de um piloto ou equipe somados a tudo que ainda dá para ganhar nas Sessões pendentes.
