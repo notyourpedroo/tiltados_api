@@ -30,6 +30,7 @@ def calendar_rows(data_dir):
 def season(data_dir, races, pending, teams=None):
     """
     Temporada sintética: `races` é uma lista de ordens de chegada; `pending` Corridas sem resultado.
+    Um `None` na ordem de chegada deixa a posição vazia (ninguém terminou nela).
     `teams` diz a equipe de cada piloto por Corrida (dict piloto -> equipe ou lista de equipes).
     """
     reset_2026_season(data_dir)
@@ -43,7 +44,8 @@ def season(data_dir, races, pending, teams=None):
     for i, finishing_order in enumerate(races, start=1):
         local = PLAYED[i - 1]
         write_session(data_dir, f"{local}_race_2026030{i}.csv",
-                      [(pos, driver, team_of(driver, i - 1), pos) for pos, driver in enumerate(finishing_order, start=1)])
+                      [(pos, driver, team_of(driver, i - 1), pos)
+                       for pos, driver in enumerate(finishing_order, start=1) if driver])
         played.append((local, "race", f"2026-03-0{i}"))
     write_calendar(data_dir, played + [(PENDING[i], "race", f"2026-12-0{i + 1}") for i in range(pending)])
 
@@ -71,6 +73,21 @@ def test_motivo_do_piloto_eliminado(client):
 
     assert rows["Douglas"]["probability_reason"] == (
         "Mesmo vencendo as 5 Sessões pendentes, chega a no máximo 348 pontos, abaixo dos 403 de Matheus."
+    )
+
+
+def test_motivo_pelo_pior_resultado_apos_o_gp_dos_estados_unidos(client):
+    # Matheus (403, sem faltar) nunca terminou abaixo do 6º em Corridas; correu Sprints, mas só há Corridas
+    # pendentes. Nas 5 Corridas, Yohan (314) tira no máximo 25 - 8 = 17 por Corrida, 85, menos que os 89
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Matheus"]["probability_reason"] == (
+        "Ainda não é Campeão pela matemática, mas nunca terminou abaixo do 6º em Corridas de 2026; "
+        "repetindo isso nas 5 Sessões pendentes, Yohan tira no máximo 85 dos 89 pontos de vantagem."
+    )
+    assert rows["Yohan"]["probability_reason"] == (
+        "Ainda está na disputa pela matemática, mas Matheus nunca terminou abaixo do 6º em Corridas de 2026; "
+        "repetindo isso nas 5 Sessões pendentes, perde no máximo 85 pontos, menos que os 89 de vantagem."
     )
 
 
@@ -201,49 +218,137 @@ def test_motivo_do_empate_exato_nos_pontos_maximos_com_varias_sessoes_pendentes(
     )
 
 
-def test_motivo_de_quem_esta_na_disputa_com_chance_de_titulo_zero(client, data_dir):
-    # 3 Corridas: Ana 75 (vence sempre, sem faltar), Bia 54 (no máximo 104), Caio 45 (no máximo 95).
-    # Ana vence as 2 Corridas pendentes em toda simulação: Bia e Caio têm 0% sem estar Eliminados
-    season(data_dir, [["Ana", "Bia", "Caio"]] * 3, pending=2)
-    rows = by_name(client.get(DRIVERS).json())
+# 3 Corridas sem ninguém em 1º: Ana sempre em 2º (54) e Bia sempre em 3º (45, no máximo 95 com 2 Corridas).
+# Ana termina à frente da Bia em toda simulação, mas repetindo o 2º chega só a 54 + 36 = 90, abaixo dos 95:
+# o argumento do pior resultado não vale e o Motivo fica no texto genérico
+RUNNER_UP_LEADER = [[None, "Ana", "Bia"]] * 3
 
-    assert rows["Bia"]["status"] == rows["Caio"]["status"] == "Na disputa"
-    assert rows["Bia"]["championship_probability"] == rows["Caio"]["championship_probability"] == 0
-    assert rows["Bia"]["probability_reason"] == (
+
+def test_motivo_de_quem_esta_na_disputa_com_chance_de_titulo_zero(client, data_dir):
+    season(data_dir, RUNNER_UP_LEADER, pending=2)
+    bia = by_name(client.get(DRIVERS).json())["Bia"]
+
+    assert bia["status"] == "Na disputa"
+    assert bia["championship_probability"] == 0
+    assert bia["probability_reason"] == (
         "Ainda está na disputa pela matemática, mas quase nunca é campeão nas 10.000 simulações: "
-        "precisaria tirar 21 pontos de Ana em 2 Sessões pendentes."
-    )
-    assert rows["Caio"]["probability_reason"] == (
-        "Ainda está na disputa pela matemática, mas quase nunca é campeão nas 10.000 simulações: "
-        "precisaria tirar 30 pontos de Ana em 2 Sessões pendentes."
+        "precisaria tirar 9 pontos de Ana em 2 Sessões pendentes."
     )
 
 
 def test_motivo_do_lider_na_disputa_com_chance_de_titulo_100(client, data_dir):
-    # Mesmo cenário: Ana 75 não é Campeão (Bia chega a 104), mas vence as 2 Corridas pendentes em toda simulação
-    season(data_dir, [["Ana", "Bia", "Caio"]] * 3, pending=2)
+    season(data_dir, RUNNER_UP_LEADER, pending=2)
     ana = by_name(client.get(DRIVERS).json())["Ana"]
 
     assert ana["status"] == "Na disputa"
     assert ana["championship_probability"] == 100
     assert ana["probability_reason"] == (
         "Ainda não é Campeão pela matemática, mas é campeão em quase todas as 10.000 simulações: "
-        "Bia precisaria tirar 21 pontos em 2 Sessões pendentes."
+        "Bia precisaria tirar 9 pontos em 2 Sessões pendentes."
     )
 
 
-def test_motivo_das_chances_de_titulo_0_e_100_com_uma_unica_sessao_pendente(client, data_dir):
-    # 3 Corridas: Ana 75 (vence sempre), Bia 54, que com mais uma Corrida chega a 79
+def test_motivo_pelo_pior_resultado_do_lider_que_sempre_venceu_na_unica_sessao_pendente(client, data_dir):
+    # 3 Corridas: Ana 75 (vence sempre), Bia 54, que com mais uma Corrida chega a 79. Repetindo a vitória,
+    # Ana chega a 100: a Bia ganha no máximo 25, o mesmo que a Ana, e a vantagem de 21 fica inteira
     season(data_dir, [["Ana", "Bia", "Caio"]] * 3, pending=1)
     rows = by_name(client.get(DRIVERS).json())
 
     assert rows["Ana"]["probability_reason"] == (
-        "Ainda não é Campeão pela matemática, mas é campeão em quase todas as 10.000 simulações: "
-        "Bia precisaria tirar 21 pontos na única Sessão pendente."
+        "Ainda não é Campeão pela matemática, mas nunca terminou abaixo do 1º em Corridas de 2026; "
+        "repetindo isso na única Sessão pendente, Bia não diminui a vantagem de 21 pontos."
     )
     assert rows["Bia"]["probability_reason"] == (
+        "Ainda está na disputa pela matemática, mas Ana nunca terminou abaixo do 1º em Corridas de 2026; "
+        "repetindo isso na única Sessão pendente, mantém toda a vantagem de 21 pontos."
+    )
+
+
+def test_lider_com_presenca_abaixo_de_100_fica_no_motivo_generico(client, data_dir):
+    # Ana venceu as 3 Corridas que disputou (75) e faltou à 4ª, em que Bia (2º sempre, 72) e Caio (3º sempre, 60)
+    # correram sem ninguém em 1º. Com 1 Corrida pendente, Caio chega no máximo a 85; Ana, repetindo a vitória,
+    # chegaria a 100, mas sem 100% de presença o argumento do pior resultado não entra.
+    # Bia termina à frente do Caio em toda simulação, então o Caio tem 0%
+    season(data_dir, [["Ana", "Bia", "Caio"]] * 3 + [[None, "Bia", "Caio"]], pending=1)
+    caio = by_name(client.get(DRIVERS).json())["Caio"]
+
+    assert caio["status"] == "Na disputa"
+    assert caio["championship_probability"] == 0
+    assert caio["probability_reason"] == (
         "Ainda está na disputa pela matemática, mas quase nunca é campeão nas 10.000 simulações: "
-        "precisaria tirar 21 pontos de Ana na única Sessão pendente."
+        "precisaria tirar 15 pontos de Ana na única Sessão pendente."
+    )
+
+
+# Ana sempre no pódio (1º, 3º, 1º) e Bia sempre em 4º, sem mais ninguém pontuando: Ana 65 x Bia 36.
+# Com 2 Corridas pendentes, Bia chega no máximo a 36 + 50 = 86; Ana, repetindo o 3º (15 pontos), chega a 95.
+# Ana perde no máximo 50 - 30 = 20 pontos para a Bia, menos que os 29 de vantagem
+PODIUM_LEADER = [["Ana", None, None, "Bia"], [None, None, "Ana", "Bia"], ["Ana", None, None, "Bia"]]
+
+
+def test_motivo_de_chance_de_titulo_zero_pelo_pior_resultado_do_lider(client, data_dir):
+    season(data_dir, PODIUM_LEADER, pending=2)
+    bia = by_name(client.get(DRIVERS).json())["Bia"]
+
+    assert bia["status"] == "Na disputa"
+    assert bia["championship_probability"] == 0
+    assert bia["probability_reason"] == (
+        "Ainda está na disputa pela matemática, mas Ana nunca terminou abaixo do 3º em Corridas de 2026; "
+        "repetindo isso nas 2 Sessões pendentes, perde no máximo 20 pontos, menos que os 29 de vantagem."
+    )
+
+
+def test_motivo_de_chance_de_titulo_100_pelo_pior_resultado_do_lider(client, data_dir):
+    season(data_dir, PODIUM_LEADER, pending=2)
+    ana = by_name(client.get(DRIVERS).json())["Ana"]
+
+    assert ana["status"] == "Na disputa"
+    assert ana["championship_probability"] == 100
+    assert ana["probability_reason"] == (
+        "Ainda não é Campeão pela matemática, mas nunca terminou abaixo do 3º em Corridas de 2026; "
+        "repetindo isso nas 2 Sessões pendentes, Bia tira no máximo 20 dos 29 pontos de vantagem."
+    )
+
+
+def test_motivo_pelo_pior_resultado_cita_corridas_e_sprints(client, data_dir):
+    # Corridas: Ana 1º e 3º (25 + 15), Bia 4º nas duas (24). Sprints: Ana 1º e 2º (8 + 7), Bia 3º nas duas (12).
+    # Ana 55 x Bia 36. Pendentes: 1 Sprint e 1 Corrida, Bia chega no máximo a 36 + 8 + 25 = 69.
+    # Repetindo o 3º na Corrida (15) e o 2º na Sprint (7), Ana chega a 77: perde no máximo 33 - 22 = 11 pontos
+    reset_2026_season(data_dir)
+    write_session(data_dir, "australia_sprint_20260301.csv", [(1, "Ana", TEAM, 1), (3, "Bia", TEAM, 3)])
+    write_session(data_dir, "australia_race_20260301.csv", [(1, "Ana", TEAM, 1), (4, "Bia", TEAM, 4)])
+    write_session(data_dir, "china_sprint_20260302.csv", [(2, "Ana", TEAM, 2), (3, "Bia", TEAM, 3)])
+    write_session(data_dir, "china_race_20260302.csv", [(3, "Ana", TEAM, 3), (4, "Bia", TEAM, 4)])
+    write_calendar(data_dir, [("australia", "sprint", "2026-03-01"), ("australia", "race", "2026-03-01"),
+                              ("china", "sprint", "2026-03-02"), ("china", "race", "2026-03-02"),
+                              ("mexico", "sprint", "2026-12-01"), ("mexico", "race", "2026-12-01")])
+    bia = by_name(client.get(DRIVERS).json())["Bia"]
+
+    assert bia["status"] == "Na disputa"
+    assert bia["championship_probability"] == 0
+    assert bia["probability_reason"] == (
+        "Ainda está na disputa pela matemática, mas Ana nunca terminou abaixo do 3º em Corridas nem do 2º em "
+        "Sprints de 2026; repetindo isso nas 2 Sessões pendentes, perde no máximo 11 pontos, menos que os 19 "
+        "de vantagem."
+    )
+
+
+def test_motivo_pelo_pior_resultado_de_lider_sem_sprint_cita_so_corridas(client, data_dir):
+    # Ana nunca correu Sprint: na Sprint pendente ela sorteia das Corridas, em que nunca ficou abaixo do 3º
+    # (6 pontos numa Sprint). Ana 65 x Bia 36 + 5 (4º na única Sprint disputada) = 41.
+    # Pendentes: 1 Sprint e 1 Corrida, Bia chega no máximo a 41 + 33 = 74; Ana, a 65 + 15 + 6 = 86.
+    # Ana perde no máximo 33 - 21 = 12 pontos, menos que os 24 de vantagem
+    season(data_dir, PODIUM_LEADER, pending=0)
+    write_session(data_dir, "miami_sprint_20260304.csv", [(4, "Bia", TEAM, 4)])
+    write_calendar(data_dir, calendar_rows(data_dir) + [
+        ("miami", "sprint", "2026-03-04"), ("mexico", "sprint", "2026-12-01"), ("mexico", "race", "2026-12-01")])
+    bia = by_name(client.get(DRIVERS).json())["Bia"]
+
+    assert bia["status"] == "Na disputa"
+    assert bia["championship_probability"] == 0
+    assert bia["probability_reason"] == (
+        "Ainda está na disputa pela matemática, mas Ana nunca terminou abaixo do 3º em Corridas de 2026; "
+        "repetindo isso nas 2 Sessões pendentes, perde no máximo 12 pontos, menos que os 24 de vantagem."
     )
 
 
@@ -362,10 +467,12 @@ def test_motivo_da_equipe_eliminada_com_um_unico_piloto(client, data_dir):
 
 
 def test_motivo_das_equipes_na_disputa_com_chances_de_titulo_0_e_100(client, data_dir):
-    # 3 Corridas com Ana e Bia (Ferrari) sempre em 1º e 2º: Ferrari 3 x 43 = 129;
-    # Williams 3 x (15 + 12) = 81, no máximo 81 + 2 x 43 = 167. A Ferrari faz 1º e 2º em toda simulação
+    # 3 Corridas sem ninguém em 1º e 2º: Ana e Bia (Ferrari) sempre em 3º e 4º, 3 x 27 = 81;
+    # Caio e Dani (Williams) sempre em 5º e 6º, 3 x 18 = 54, no máximo 54 + 2 x 43 = 140.
+    # A Ferrari termina à frente em toda simulação, mas repetindo 3º e 4º chega só a 81 + 54 = 135:
+    # o argumento do pior resultado não vale e o Motivo fica no texto genérico
     teams = {"Ana": "Ferrari", "Bia": "Ferrari", "Caio": "Williams", "Dani": "Williams"}
-    season(data_dir, [["Ana", "Bia", "Caio", "Dani"]] * 3, pending=2, teams=teams)
+    season(data_dir, [[None, None, "Ana", "Bia", "Caio", "Dani"]] * 3, pending=2, teams=teams)
     rows = by_name(client.get(TEAMS).json(), key="team_name")
 
     assert rows["Ferrari"]["status"] == rows["Williams"]["status"] == "Na disputa"
@@ -373,11 +480,35 @@ def test_motivo_das_equipes_na_disputa_com_chances_de_titulo_0_e_100(client, dat
     assert rows["Williams"]["championship_probability"] == 0
     assert rows["Ferrari"]["probability_reason"] == (
         "Ainda não é Campeã de Construtores pela matemática, mas é campeã em quase todas as 10.000 simulações: "
-        "a Williams precisaria tirar 48 pontos em 2 Sessões pendentes."
+        "a Williams precisaria tirar 27 pontos em 2 Sessões pendentes."
     )
     assert rows["Williams"]["probability_reason"] == (
         "Ainda está na disputa pela matemática, mas quase nunca é campeã nas 10.000 simulações: "
-        "precisaria tirar 48 pontos da Ferrari em 2 Sessões pendentes."
+        "precisaria tirar 27 pontos da Ferrari em 2 Sessões pendentes."
+    )
+
+
+def test_motivo_das_equipes_pelo_pior_resultado_da_lider(client, data_dir):
+    # Ferrari: Ana 1º, 2º, 1º e Bia 2º, 1º, 3º = 43 + 43 + 40 = 126; Williams: Caio 4º e Dani 5º, 3 x 22 = 66,
+    # no máximo 66 + 2 x 43 = 152. Repetindo o pior de cada piloto (Ana 2º = 18, Bia 3º = 15), a Ferrari
+    # ganha pelo menos 2 x 33 = 66 e chega a 192: perde no máximo 86 - 66 = 20 pontos, menos que os 60 de vantagem
+    teams = {"Ana": "Ferrari", "Bia": "Ferrari", "Caio": "Williams", "Dani": "Williams"}
+    season(data_dir, [["Ana", "Bia", None, "Caio", "Dani"], ["Bia", "Ana", None, "Caio", "Dani"],
+                      ["Ana", None, "Bia", "Caio", "Dani"]], pending=2, teams=teams)
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows["Ferrari"]["status"] == rows["Williams"]["status"] == "Na disputa"
+    assert rows["Ferrari"]["championship_probability"] == 100
+    assert rows["Williams"]["championship_probability"] == 0
+    assert rows["Ferrari"]["probability_reason"] == (
+        "Ainda não é Campeã de Construtores pela matemática, mas, repetindo o pior resultado de cada piloto "
+        "em Corridas de 2026 (Ana 2º, Bia 3º), a Williams tira no máximo 20 dos 60 pontos de vantagem "
+        "nas 2 Sessões pendentes."
+    )
+    assert rows["Williams"]["probability_reason"] == (
+        "Ainda está na disputa pela matemática, mas, repetindo o pior resultado de cada piloto em Corridas "
+        "de 2026 (Ana 2º, Bia 3º), a Ferrari perde no máximo 20 pontos nas 2 Sessões pendentes, menos que "
+        "os 60 de vantagem."
     )
 
 

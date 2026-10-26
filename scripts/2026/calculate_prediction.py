@@ -44,13 +44,17 @@ N_SIMULATIONS = 10_000
 
 
 def _load_points_tables(base_path, size):
-    """Pontos por posição (índice = posição, até `size`) para corrida e sprint, a partir do scores.csv."""
+    """
+    Pontos por posição (índice = posição) para corrida e sprint, a partir do scores.csv.
+    Cobre pelo menos até `size` e até a última posição que pontua.
+    """
     scores_file = os.path.join(base_path, "scores.csv")
     df_scores = read_csv(scores_file)
     require_columns(df_scores, ["position", "points", "is_sprint"], scores_file)
     df_scores["position"] = to_int_column(df_scores, "position", scores_file)
     df_scores["points"] = to_int_column(df_scores, "points", scores_file)
 
+    size = max([size, *df_scores["position"]])
     tables = {False: np.zeros(size + 1), True: np.zeros(size + 1)}
     for position, points, is_sprint in zip(df_scores["position"], df_scores["points"], df_scores["is_sprint"]):
         if 1 <= position <= size:
@@ -161,10 +165,10 @@ def _count(value, singular, plural):
 
 
 def _ref(preposition, name, is_team):
-    """Preposição + nome do rival: "de Matheus", "da Ferrari", "com a Ferrari", "sobre a Ferrari"."""
+    """Preposição + nome do rival: "de Matheus", "da Ferrari", "com a Ferrari"; sem preposição, "Matheus" ou "a Ferrari"."""
     if not is_team:
-        return f"{preposition} {name}"
-    return {"de": f"da {name}", "com": f"com a {name}", "sobre": f"sobre a {name}"}[preposition]
+        return f"{preposition} {name}" if preposition else name
+    return {None: f"a {name}", "de": f"da {name}", "com": f"com a {name}", "sobre": f"sobre a {name}"}[preposition]
 
 
 def _tiebreak_sentence(i, names, points, wins, podiums, is_team):
@@ -284,20 +288,81 @@ def _full_chance_reason(names, points, n_pending, n_simulations, is_team):
     )
 
 
+def _floor_zero_reason(i, names, points, max_points, n_pending, is_team, floor):
+    """
+    Motivo de quem está Na disputa com Chance de título exibida como 0,0 quando o líder, repetindo
+    o pior resultado de 2026, ainda fica à frente dos seus Pontos máximos.
+    """
+    gain, worst = floor
+    lead = points[0] - points[i]
+    loss = max_points[i] - points[i] - gain  # o que o rival ganha a mais que o líder, no máximo
+    in_sessions = _pending_sessions(n_pending)[1]
+    if loss > 0:
+        keeps = f"perde no máximo {_count(loss, 'ponto', 'pontos')}"
+        than_lead = f", menos que os {_format_number(lead)} de vantagem"
+    else:
+        keeps, than_lead = f"mantém toda a vantagem de {_count(lead, 'ponto', 'pontos')}", ""
+    if is_team:
+        return (
+            f"Ainda está na disputa pela matemática, mas, repetindo o pior resultado de cada piloto {worst}, "
+            f"{_ref(None, names[0], is_team)} {keeps} {in_sessions}{than_lead}."
+        )
+    return f"Ainda está na disputa pela matemática, mas {names[0]} {worst}; repetindo isso {in_sessions}, {keeps}{than_lead}."
+
+
+def _floor_full_reason(names, points, max_points, n_pending, is_team, floor):
+    """
+    Motivo do líder Na disputa com Chance de título exibida como 100,0 quando, repetindo o pior
+    resultado de 2026, ainda fica à frente dos Pontos máximos de todo rival Na disputa (o texto cita o 2º).
+    """
+    gain, worst = floor
+    lead = _count(points[0] - points[1], "ponto", "pontos")
+    loss = max_points[1] - points[1] - gain  # o que o 2º ganha a mais que o líder, no máximo
+    in_sessions = _pending_sessions(n_pending)[1]
+    takes = f"tira no máximo {_format_number(loss)} dos {lead} de vantagem" if loss > 0 else f"não diminui a vantagem de {lead}"
+    if is_team:
+        return (
+            f"Ainda não é Campeã de Construtores pela matemática, mas, repetindo o pior resultado de cada piloto "
+            f"{worst}, {_ref(None, names[1], is_team)} {takes} {in_sessions}."
+        )
+    return f"Ainda não é Campeão pela matemática, mas {worst}; repetindo isso {in_sessions}, {names[1]} {takes}."
+
+
+def _floor_holds(i, points, max_points, statuses, leader_floor):
+    """
+    Se o argumento do pior resultado vale para a linha i: o líder, somando o ganho mínimo, fica acima
+    dos Pontos máximos do rival i; para o próprio líder, acima dos de todo rival Na disputa.
+    """
+    if leader_floor is None:
+        return False
+    rivals = [j for j in range(1, len(statuses)) if statuses[j] == "Na disputa"] if i == 0 else [i]
+    return all(points[0] + leader_floor[0] > max_points[j] for j in rivals)
+
+
 def _contention_main_reason(
-    i, names, points, max_points, expected_points, probability, n_pending, n_simulations, is_team, team_drivers
+    i, names, points, max_points, expected_points, probability, n_pending, n_simulations, is_team, team_drivers,
+    floor,
 ):
-    """Frase principal do Motivo de quem está Na disputa, do caso mais específico para o texto intermediário."""
+    """
+    Frase principal do Motivo de quem está Na disputa, do caso mais específico para o texto intermediário.
+    `floor` é o argumento do pior resultado do líder, só quando ele vale para esta linha (senão, None).
+    """
     if points[i] < points[0] == max_points[i]:
         return _exact_tie_reason(i, names, n_pending, is_team, team_drivers)
     if i > 0 and probability[i] == 0 and points[i] < points[0]:
+        if floor:
+            return _floor_zero_reason(i, names, points, max_points, n_pending, is_team, floor)
         return _zero_chance_reason(i, names, points, n_pending, n_simulations, is_team)
     if i == 0 and probability[0] == 100 and points[0] > points[1]:
+        if floor:
+            return _floor_full_reason(names, points, max_points, n_pending, is_team, floor)
         return _full_chance_reason(names, points, n_pending, n_simulations, is_team)
     return _contention_reason(i, names, points, expected_points, n_pending, is_team)
 
 
-def _probability_reasons(rows, expected_points, n_pending, is_team, team_drivers=None, n_simulations=N_SIMULATIONS):
+def _probability_reasons(
+    rows, expected_points, n_pending, is_team, team_drivers=None, n_simulations=N_SIMULATIONS, leader_floor=None
+):
     """
     Motivo da Chance de título de cada linha (pilotos ou equipes).
 
@@ -306,8 +371,10 @@ def _probability_reasons(rows, expected_points, n_pending, is_team, team_drivers
     é o líder, o rival de referência de todos; o próprio líder se compara com o 2º.
     `extra` são as frases extras (Suspensão, presença), que só entram depois da frase
     principal de quem está Na disputa. `expected_points` segue a mesma ordem,
-    `team_drivers[i]` é a quantidade de pilotos atuais da equipe i (só para equipes) e
-    `n_simulations` é a quantidade de simulações.
+    `team_drivers[i]` é a quantidade de pilotos atuais da equipe i (só para equipes),
+    `n_simulations` é a quantidade de simulações e `leader_floor` é o argumento do pior
+    resultado do líder, (ganho mínimo nas Sessões pendentes, trecho da frase com o pior
+    resultado), ou None quando o líder não tem 100% de presença.
     """
     names = rows["name"].tolist()
     points = rows["points"].to_numpy()
@@ -315,9 +382,10 @@ def _probability_reasons(rows, expected_points, n_pending, is_team, team_drivers
     wins = rows["wins"].to_numpy()
     podiums = rows["podiums"].to_numpy()
     probability = rows["probability"].to_numpy()
+    statuses = rows["status"].tolist()
 
     reasons = []
-    for i, status in enumerate(rows["status"]):
+    for i, status in enumerate(statuses):
         if not n_pending:
             reasons.append(_final_reason(i, names, points, wins, podiums, is_team))
         elif status == "Eliminado":
@@ -325,9 +393,10 @@ def _probability_reasons(rows, expected_points, n_pending, is_team, team_drivers
         elif status == "Campeao":
             reasons.append(_champion_reason(i, names, points, max_points, is_team))
         else:
+            floor = leader_floor if _floor_holds(i, points, max_points, statuses, leader_floor) else None
             reasons.append(_contention_main_reason(
                 i, names, points, max_points, expected_points, probability, n_pending, n_simulations,
-                is_team, team_drivers,
+                is_team, team_drivers, floor,
             ))
 
     # Frases extras (Suspensão, presença) só para quem está Na disputa, depois da frase principal
@@ -365,6 +434,69 @@ def _team_extras(team_ids, standings, suspended):
     return extras
 
 
+SESSION_TYPES = {False: "Corridas", True: "Sprints"}
+
+
+def _worst_results(season, j):
+    """
+    Pior resultado do piloto j em 2026 nos tipos de Sessão que a simulação usa para as Sessões pendentes.
+
+    Cada tipo de Sessão pendente usa as posições do piloto no mesmo tipo ou, sem nenhuma, as do
+    outro tipo (como a simulação). Devolve o ganho mínimo, a soma dos pontos dessa pior posição
+    em cada Sessão pendente, e {tipo usado: pior posição}, com Corridas antes de Sprints.
+    """
+    positions, tables = season["positions"], season["tables"]
+    gain, worst = 0, {}
+    for is_sprint in season["pending"]:
+        source = is_sprint if positions[is_sprint][j].size else not is_sprint
+        worst[source] = int(positions[source][j].max())
+        table = tables[is_sprint]
+        gain += table[worst[source]] if worst[source] < len(table) else 0
+    return gain, dict(sorted(worst.items()))
+
+
+def _has_full_presence(season, j):
+    """Se o piloto j disputou todas as Corridas da temporada (ou todas as Sessões, se só correu Sprints)."""
+    played, total, _ = season["presence_counts"][j]
+    return played == total
+
+
+def _driver_floor(season):
+    """
+    Argumento do pior resultado do líder de pilotos: (ganho mínimo, "nunca terminou abaixo do 6º em
+    Corridas de 2026"), ou None se ele não tem 100% de presença.
+    """
+    if not len(season["standings"]) or not _has_full_presence(season, 0):
+        return None
+    gain, worst = _worst_results(season, 0)
+    below = " nem ".join(f"do {position}º em {SESSION_TYPES[source]}" for source, position in worst.items())
+    return gain, f"nunca terminou abaixo {below} de 2026"
+
+
+def _team_floor(season, team_id):
+    """
+    Argumento do pior resultado da equipe líder: (soma do ganho mínimo de cada piloto atual,
+    "em Corridas de 2026 (Matheus 6º, Erick 9º)"), ou None se ela não tem piloto atual ou se
+    algum deles não tem 100% de presença. Os pilotos seguem a ordem da classificação.
+    """
+    standings = season["standings"]
+    drivers = np.flatnonzero((standings["team_id"] == team_id).to_numpy())
+    if not drivers.size or not all(_has_full_presence(season, j) for j in drivers):
+        return None
+    names = standings["driver_name"].to_numpy()[drivers]
+    gains, worsts = zip(*(_worst_results(season, j) for j in drivers))
+
+    if len(worsts[0]) == 1 and all(worst.keys() == worsts[0].keys() for worst in worsts):
+        (source,) = worsts[0]
+        listed = ", ".join(f"{name} {worst[source]}º" for name, worst in zip(names, worsts))
+        return sum(gains), f"em {SESSION_TYPES[source]} de 2026 ({listed})"
+    listed = ", ".join(
+        f"{name} " + " e ".join(f"{position}º em {SESSION_TYPES[source]}" for source, position in worst.items())
+        for name, worst in zip(names, worsts)
+    )
+    return sum(gains), f"em 2026 ({listed})"
+
+
 def _displayed_probability(status, probability):
     """Chance de título como exibida: 0 para Eliminado, 100 para Campeao e arredondada a 1 casa."""
     status = np.asarray(status)
@@ -390,8 +522,9 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
 
     Retorna um dict com a classificação de pilotos (`standings`), os tipos das Sessões
     pendentes (`pending`), as tabelas de pontos (`tables`), o gerador aleatório já
-    usado (`rng`), por piloto (na ordem da classificação) as posições sorteadas em cada
-    tipo de Sessão (`histories[is_sprint][j]`), a presença (`presence`), as contagens que
+    usado (`rng`), por piloto (na ordem da classificação) as posições que ele fez em cada tipo
+    de Sessão em 2026 (`positions[is_sprint][j]`), as posições sorteadas em cada tipo de Sessão
+    (`histories[is_sprint][j]`), a presença (`presence`), as contagens que
     formam a presença (`presence_counts[j]` = (disputadas, da temporada, "Corridas" ou "Sessões"))
     e a Suspensão pendente (`suspended`), e, por simulação e piloto, `sim_points`, `sim_wins` e `sim_podiums`.
     """
@@ -446,6 +579,7 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
         "pending": pending,
         "tables": tables,
         "rng": rng,
+        "positions": positions,
         "histories": histories,
         "presence": presence,
         "presence_counts": presence_counts,
@@ -488,6 +622,7 @@ def _driver_prediction(season):
                   probability=_displayed_probability(df["status"], probability),
                   extra=_driver_extras(season["suspended"], season["presence_counts"])),
         np.round(expected_points, 1), len(pending), is_team=False, n_simulations=len(final_points),
+        leader_floor=_driver_floor(season),
     )
     df = _finish(df, probability, expected_points, sort_key="position")
 
@@ -548,6 +683,7 @@ def _team_prediction(season, team_standings):
                   extra=_team_extras(df["team_id"], season["standings"], season["suspended"])),
         np.round(expected_points, 1), len(pending), is_team=True, team_drivers=team_drivers,
         n_simulations=len(final_points),
+        leader_floor=_team_floor(season, df["team_id"].iloc[0]) if len(df) else None,
     )
     df = _finish(df, probability, expected_points, sort_key="position")
 
