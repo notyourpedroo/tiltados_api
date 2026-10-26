@@ -243,10 +243,11 @@ def _probability_reasons(rows, expected_points, n_pending, is_team, team_drivers
     """
     Motivo da Chance de título de cada linha (pilotos ou equipes).
 
-    `rows` tem as colunas name, points, max_points, status, wins e podiums, na ordem da
+    `rows` tem as colunas name, points, max_points, status, wins, podiums e extra, na ordem da
     classificação atual: a 1ª linha é o líder, o rival de referência de todos; o próprio
-    líder se compara com o 2º. `expected_points` segue a mesma ordem, e `team_drivers[i]`
-    é a quantidade de pilotos atuais da equipe i (só para equipes).
+    líder se compara com o 2º. `extra` são as frases extras (Suspensão, presença), que só
+    entram depois da frase principal de quem está Na disputa. `expected_points` segue a
+    mesma ordem, e `team_drivers[i]` é a quantidade de pilotos atuais da equipe i (só para equipes).
     """
     names = rows["name"].tolist()
     points = rows["points"].to_numpy()
@@ -264,7 +265,40 @@ def _probability_reasons(rows, expected_points, n_pending, is_team, team_drivers
             reasons.append(_champion_reason(i, names, points, max_points, is_team))
         else:
             reasons.append(_contention_reason(i, names, points, expected_points, n_pending, is_team))
-    return reasons
+
+    # Frases extras (Suspensão, presença) só para quem está Na disputa, depois da frase principal
+    return [
+        f"{reason} {extra}" if status == "Na disputa" and extra else reason
+        for reason, status, extra in zip(reasons, rows["status"], rows["extra"])
+    ]
+
+
+def _driver_extras(suspended, presence_counts):
+    """Frases extras de cada piloto: Suspensão pendente na próxima Corrida e, depois, presença abaixo de 100%."""
+    extras = []
+    for is_suspended, (played, total, sessions) in zip(suspended, presence_counts):
+        sentences = ["Fica fora da próxima Corrida por Suspensão."] if is_suspended else []
+        if played < total:
+            sentences.append(
+                f"Disputou {_format_number(played)} das {_format_number(total)} {sessions}, "
+                "então nas simulações corre só parte das Sessões pendentes."
+            )
+        extras.append(" ".join(sentences))
+    return extras
+
+
+def _team_extras(team_ids, standings, suspended):
+    """Frases extras de cada equipe: os pilotos atuais dela suspensos na próxima Corrida, na ordem da classificação."""
+    extras = []
+    for team_id in team_ids:
+        names = standings.loc[suspended & (standings["team_id"] == team_id).to_numpy(), "driver_name"].tolist()
+        if not names:
+            extras.append("")
+        elif len(names) == 1:
+            extras.append(f"{names[0]} fica fora da próxima Corrida por Suspensão.")
+        else:
+            extras.append(f"{', '.join(names[:-1])} e {names[-1]} ficam fora da próxima Corrida por Suspensão.")
+    return extras
 
 
 def _finish(df, probability, expected_points, sort_key):
@@ -289,8 +323,9 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
     Retorna um dict com a classificação de pilotos (`standings`), os tipos das Sessões
     pendentes (`pending`), as tabelas de pontos (`tables`), o gerador aleatório já
     usado (`rng`), por piloto (na ordem da classificação) as posições sorteadas em cada
-    tipo de Sessão (`histories[is_sprint][j]`), a presença (`presence`) e a Suspensão
-    pendente (`suspended`), e, por simulação e piloto, `sim_points`, `sim_wins` e `sim_podiums`.
+    tipo de Sessão (`histories[is_sprint][j]`), a presença (`presence`), as contagens que
+    formam a presença (`presence_counts[j]` = (disputadas, da temporada, "Corridas" ou "Sessões"))
+    e a Suspensão pendente (`suspended`), e, por simulação e piloto, `sim_points`, `sim_wins` e `sim_podiums`.
     """
     calendar = load_calendar(base_path=base_path)
     standings = calculate_driver_standings(base_path=base_path, base_path_2025=base_path_2025)
@@ -319,10 +354,11 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
     # Presença: Corridas disputadas pelo piloto / Corridas da temporada; sem Corrida, a razão sobre Sessões
     races_played = results.loc[~results["is_sprint"], "race_id"].nunique()
     sessions_played = results["race_id"].nunique()
-    presence = np.array([
-        races.size / races_played if races.size else sprints.size / sessions_played
+    presence_counts = [
+        (races.size, races_played, "Corridas") if races.size else (sprints.size, sessions_played, "Sessões")
         for races, sprints in zip(positions[False], positions[True])
-    ])
+    ]
+    presence = np.array([played / total for played, total, _ in presence_counts])
 
     # Semente derivada dos dados: os mesmos CSVs dão sempre a mesma resposta
     seed_data = pd.util.hash_pandas_object(results, index=False).to_numpy().tobytes() + repr(pending).encode()
@@ -344,6 +380,7 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
         "rng": rng,
         "histories": histories,
         "presence": presence,
+        "presence_counts": presence_counts,
         "suspended": suspended,
         "sim_points": sim_points,
         "sim_wins": sim_wins,
@@ -378,7 +415,8 @@ def _driver_prediction(season):
     )
     expected_points = final_points.mean(axis=0)
     df["probability_reason"] = _probability_reasons(
-        df.assign(name=df["driver_name"], wins=standings["wins"], podiums=standings["podiums"]),
+        df.assign(name=df["driver_name"], wins=standings["wins"], podiums=standings["podiums"],
+                  extra=_driver_extras(season["suspended"], season["presence_counts"])),
         np.round(expected_points, 1), len(pending), is_team=False,
     )
     df = _finish(
@@ -439,7 +477,8 @@ def _team_prediction(season, team_standings):
     )
     expected_points = final_points.mean(axis=0)
     df["probability_reason"] = _probability_reasons(
-        df.assign(name=df["team_name"], wins=team_standings["wins"], podiums=team_standings["podiums"]),
+        df.assign(name=df["team_name"], wins=team_standings["wins"], podiums=team_standings["podiums"],
+                  extra=_team_extras(df["team_id"], season["standings"], season["suspended"])),
         np.round(expected_points, 1), len(pending), is_team=True, team_drivers=team_drivers,
     )
     df = _finish(

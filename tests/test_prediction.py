@@ -435,3 +435,109 @@ def test_nova_punicao_depois_da_suspensao_gera_nova_suspensao(client, data_dir):
     ana = by_name(client.get(DRIVERS).json())["Ana"]
 
     assert ana["expected_points"] == ana["points"]
+
+
+SUSPENSION = " Fica fora da próxima Corrida por Suspensão."
+
+
+def test_motivo_do_piloto_suspenso_na_disputa(client, data_dir):
+    # Ana 50 x Bia 36 (no máximo 36 + 75 = 111): as duas Na disputa; a Ana zerou a Superlicença na última Corrida
+    season(data_dir, [["Ana", "Bia"], ["Ana", "Bia"]], pending=3)
+    punish(client, data_dir, [("Ana", "GP da China", 12)])
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Ana"]["status"] == rows["Bia"]["status"] == "Na disputa"
+    assert rows["Ana"]["probability_reason"].endswith(SUSPENSION)
+    assert "Suspensão" not in rows["Bia"]["probability_reason"]
+
+
+FERRARI_X_WILLIAMS = {"Ana": "Ferrari", "Bia": "Ferrari", "Caio": "Williams", "Dani": "Williams"}
+# Ferrari 25 + 15 + 18 + 15 = 73 x Williams 18 + 12 + 25 + 12 = 67, com 3 Corridas pendentes
+FERRARI_X_WILLIAMS_RACES = [["Ana", "Caio", "Bia", "Dani"], ["Caio", "Ana", "Bia", "Dani"]]
+
+
+def test_motivo_da_equipe_cita_o_piloto_suspenso(client, data_dir):
+    season(data_dir, FERRARI_X_WILLIAMS_RACES, pending=3, teams=FERRARI_X_WILLIAMS)
+    punish(client, data_dir, [("Ana", "GP da China", 12)])
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows["Ferrari"]["status"] == rows["Williams"]["status"] == "Na disputa"
+    assert rows["Ferrari"]["probability_reason"].endswith(" Ana fica fora da próxima Corrida por Suspensão.")
+    assert "Suspensão" not in rows["Williams"]["probability_reason"]
+
+
+def test_motivo_da_equipe_com_dois_pilotos_suspensos(client, data_dir):
+    # Ana (43 pontos) vem antes de Bia (30) na classificação
+    season(data_dir, FERRARI_X_WILLIAMS_RACES, pending=3, teams=FERRARI_X_WILLIAMS)
+    punish(client, data_dir, [("Bia", "GP da China", 12), ("Ana", "GP da China", 12)])
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows["Ferrari"]["probability_reason"].endswith(" Ana e Bia ficam fora da próxima Corrida por Suspensão.")
+
+
+def test_motivo_do_piloto_com_presenca_abaixo_de_100(client, data_dir):
+    # Ana 2 x 25 = 50 faltou a 2 das 4 Corridas e chega no máximo a 50 + 75 = 125, acima dos 86 da Bia
+    season(data_dir, [["Ana", "Bia", "Caio"], ["Ana", "Bia", "Caio"], ["Bia", "Caio"], ["Bia", "Caio"]], pending=3)
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Ana"]["status"] == "Na disputa"
+    assert rows["Ana"]["probability_reason"].endswith(
+        " Disputou 2 das 4 Corridas, então nas simulações corre só parte das Sessões pendentes.")
+    assert "Disputou" not in rows["Bia"]["probability_reason"]
+    assert "Disputou" not in rows["Caio"]["probability_reason"]
+
+
+def test_motivo_traz_suspensao_antes_da_presenca(client, data_dir):
+    # Ana faltou às 2 primeiras Corridas e zerou a Superlicença na última: 50 pontos, no máximo 125
+    season(data_dir, [["Bia", "Caio"], ["Bia", "Caio"], ["Ana", "Bia", "Caio"], ["Ana", "Bia", "Caio"]], pending=3)
+    punish(client, data_dir, [("Ana", "GP do Barém", 12)])
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Ana"]["status"] == "Na disputa"
+    assert rows["Ana"]["probability_reason"].endswith(
+        " Fica fora da próxima Corrida por Suspensão."
+        " Disputou 2 das 4 Corridas, então nas simulações corre só parte das Sessões pendentes.")
+
+
+def test_motivo_do_piloto_que_so_correu_sprints_conta_sessoes(client, data_dir):
+    # Zeca só correu a Sprint: 1 das 2 Sessões disputadas; 8 pontos, no máximo 33, acima dos 32 da Ana
+    season(data_dir, [["Ana", "Bia", "Caio"]], pending=1)
+    write_session(data_dir, "china_sprint_20260302.csv", [(1, "Zeca", TEAM, 1), (2, "Ana", TEAM, 2)])
+    write_calendar(data_dir, calendar_rows(data_dir) + [("china", "sprint", "2026-03-02")])
+    zeca = by_name(client.get(DRIVERS).json())["Zeca"]
+
+    assert zeca["status"] == "Na disputa"
+    assert zeca["probability_reason"].endswith(
+        " Disputou 1 das 2 Sessões, então nas simulações corre só parte das Sessões pendentes.")
+
+
+def test_campeao_e_eliminado_nao_recebem_frases_extras(client, data_dir):
+    # 4 Corridas: Ana 100 (Campeão) e Bia 72 (no máximo 97) zeraram a Superlicença na última;
+    # Caio faltou à última: 3 x 15 = 45, no máximo 70
+    season(data_dir, [["Ana", "Bia", "Caio"]] * 3 + [["Ana", "Bia"]], pending=1)
+    punish(client, data_dir, [("Ana", "GP do Barém", 12), ("Bia", "GP do Barém", 12)])
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Ana"]["probability_reason"] == (
+        "Nenhum rival alcança mais os seus 100 pontos: o mais próximo, Bia, chega a no máximo 97."
+    )
+    assert rows["Bia"]["probability_reason"] == (
+        "Mesmo vencendo a única Sessão pendente, chega a no máximo 97 pontos, abaixo dos 100 de Ana."
+    )
+    assert rows["Caio"]["probability_reason"] == (
+        "Mesmo vencendo a única Sessão pendente, chega a no máximo 70 pontos, abaixo dos 100 de Ana."
+    )
+
+
+def test_equipe_campea_ou_eliminada_nao_cita_piloto_suspenso(client, data_dir):
+    # 3 Corridas: Ferrari 3 x 43 = 129 (Campeã); Williams 3 x 27 = 81, no máximo 124
+    season(data_dir, [["Ana", "Bia", "Caio", "Dani"]] * 3, pending=1, teams=FERRARI_X_WILLIAMS)
+    punish(client, data_dir, [("Ana", "GP do Japão", 12), ("Caio", "GP do Japão", 12)])
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows["Ferrari"]["probability_reason"] == (
+        "Nenhuma equipe alcança mais os seus 129 pontos: a mais próxima, Williams, chega a no máximo 124."
+    )
+    assert rows["Williams"]["probability_reason"] == (
+        "Mesmo fazendo 1º e 2º na única Sessão pendente, chega a no máximo 124 pontos, abaixo dos 129 da Ferrari."
+    )

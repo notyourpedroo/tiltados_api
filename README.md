@@ -214,6 +214,7 @@ O parâmetro `{season}` aceita os valores `2025` ou `2026`.
   - `Eliminado`: os Pontos máximos (vencendo todas as Sessões pendentes; para equipes, fazendo 1º e 2º, ou só vencendo, com um único piloto) abaixo dos pontos do líder.
   - `Campeao` antes da última Sessão: nenhum rival alcança mais os seus pontos, com os Pontos máximos do mais próximo.
   - `Na disputa`: a distância para o líder (ou, para o líder, a vantagem sobre o 2º), as Sessões pendentes e os pontos médios nas simulações, os seus e os do rival.
+  - Só para quem está `Na disputa`, depois da frase principal, entram as frases dos fatores que mexem na porcentagem sem aparecer no JSON: primeiro a Suspensão ("Fica fora da próxima Corrida por Suspensão."; na equipe, citando os pilotos atuais suspensos: "Ana fica fora da próxima Corrida por Suspensão.") e depois, só para pilotos, a presença abaixo de 100% ("Disputou 12 das 18 Corridas, então nas simulações corre só parte das Sessões pendentes.", com "Sessões" no lugar de "Corridas" para quem só correu Sprints). `Campeao` e `Eliminado` não recebem essas frases, porque elas não mudam a situação.
   - Os números do texto seguem o padrão brasileiro ("10.000", "509,5", "6º"); os campos numéricos do JSON não mudam.
 
 ## Exemplos de Uso e Respostas
