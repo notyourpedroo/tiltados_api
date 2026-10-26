@@ -255,11 +255,11 @@ def test_motivo_pelo_pior_resultado_do_lider_que_sempre_venceu_na_unica_sessao_p
     rows = by_name(client.get(DRIVERS).json())
 
     assert rows["Ana"]["probability_reason"] == (
-        "Ainda não é Campeão pela matemática, mas nunca terminou abaixo do 1º em Corridas de 2026; "
+        "Ainda não é Campeão pela matemática, mas venceu todas as Corridas de 2026; "
         "repetindo isso na única Sessão pendente, Bia não diminui a vantagem de 21 pontos."
     )
     assert rows["Bia"]["probability_reason"] == (
-        "Ainda está na disputa pela matemática, mas Ana nunca terminou abaixo do 1º em Corridas de 2026; "
+        "Ainda está na disputa pela matemática, mas Ana venceu todas as Corridas de 2026; "
         "repetindo isso na única Sessão pendente, mantém toda a vantagem de 21 pontos."
     )
 

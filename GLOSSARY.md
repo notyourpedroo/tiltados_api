@@ -53,6 +53,12 @@ _Avoid_: odds, probabilidade de campeão
 A frase que explica por que um piloto ou equipe tem a sua Chance de título: pela matemática, quando já é Campeão ou Eliminado, ou pela simulação, quando ainda está na disputa. No dia a dia, só "Motivo".
 _Avoid_: justificativa, explicação
 
+**Ganho mínimo**:
+Os pontos que o líder ainda soma nas Sessões pendentes repetindo, em cada uma, o pior resultado que já fez na temporada naquele tipo de Sessão. Para uma equipe, a soma do Ganho mínimo dos seus pilotos atuais.
+
+**Argumento do pior resultado**:
+O Motivo de quem está na disputa com Chance de título de 0% ou 100%: mesmo com o rival somando tudo o que ainda pode, o líder fica à frente só com o seu Ganho mínimo. Só vale quando o líder (ou todos os pilotos da equipe líder) disputou todas as Corridas.
+
 ## Superlicença
 
 **Superlicença**:

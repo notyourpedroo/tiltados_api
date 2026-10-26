@@ -361,7 +361,7 @@ def _contention_main_reason(
 
 
 def _probability_reasons(
-    rows, expected_points, n_pending, is_team, team_drivers=None, n_simulations=N_SIMULATIONS, leader_floor=None
+    rows, expected_points, n_pending, is_team, n_simulations, team_drivers=None, leader_floor=None
 ):
     """
     Motivo da Chance de título de cada linha (pilotos ou equipes).
@@ -464,13 +464,18 @@ def _has_full_presence(season, j):
 def _driver_floor(season):
     """
     Argumento do pior resultado do líder de pilotos: (ganho mínimo, "nunca terminou abaixo do 6º em
-    Corridas de 2026"), ou None se ele não tem 100% de presença.
+    Corridas de 2026"; "venceu todas as Corridas de 2026" quando o pior resultado é a vitória),
+    ou None se ele não tem 100% de presença.
     """
     if not len(season["standings"]) or not _has_full_presence(season, 0):
         return None
     gain, worst = _worst_results(season, 0)
-    below = " nem ".join(f"do {position}º em {SESSION_TYPES[source]}" for source, position in worst.items())
-    return gain, f"nunca terminou abaixo {below} de 2026"
+    won = [SESSION_TYPES[source] for source, position in worst.items() if position == 1]
+    below = [f"do {position}º em {SESSION_TYPES[source]}" for source, position in worst.items() if position > 1]
+    parts = ([f"venceu todas as {' e '.join(won)}"] if won else []) + (
+        [f"nunca terminou abaixo {' nem '.join(below)}"] if below else []
+    )
+    return gain, f"{' e '.join(parts)} de 2026"
 
 
 def _team_floor(season, team_id):
@@ -523,9 +528,7 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
     Retorna um dict com a classificação de pilotos (`standings`), os tipos das Sessões
     pendentes (`pending`), as tabelas de pontos (`tables`), o gerador aleatório já
     usado (`rng`), por piloto (na ordem da classificação) as posições que ele fez em cada tipo
-    de Sessão em 2026 (`positions[is_sprint][j]`), as posições sorteadas em cada tipo de Sessão
-    (`histories[is_sprint][j]`), a presença (`presence`), as contagens que
-    formam a presença (`presence_counts[j]` = (disputadas, da temporada, "Corridas" ou "Sessões"))
+    de Sessão em 2026 (`positions[is_sprint][j]`), as contagens que formam a presença (`presence_counts[j]` = (disputadas, da temporada, "Corridas" ou "Sessões"))
     e a Suspensão pendente (`suspended`), e, por simulação e piloto, `sim_points`, `sim_wins` e `sim_podiums`.
     """
     calendar = load_calendar(base_path=base_path)
@@ -580,8 +583,6 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
         "tables": tables,
         "rng": rng,
         "positions": positions,
-        "histories": histories,
-        "presence": presence,
         "presence_counts": presence_counts,
         "suspended": suspended,
         "sim_points": sim_points,
