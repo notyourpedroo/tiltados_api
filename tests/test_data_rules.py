@@ -2,24 +2,34 @@
 
 import csv
 import os
+import re
 
-from conftest import replace_in_file, reset_2026_season, write_session
+import pytest
+
+from conftest import REPO_FILES, replace_in_file, reset_2026_season, write_session
+
+# Temporadas por Sessão dos dados reais: toda files/{ano}/ com Calendário
+SESSION_SEASONS = sorted(
+    name for name in os.listdir(REPO_FILES)
+    if re.fullmatch(r"\d{4}", name) and os.path.exists(os.path.join(REPO_FILES, name, "calendar.csv"))
+)
 
 
 def races_by_name(client, season):
     return {r["race_name"]: r for r in client.get(f"/load/{season}/races").json()}
 
 
-def test_todas_as_sessoes_e_o_calendario_de_2026_estao_no_cadastro(client, data_dir):
+@pytest.mark.parametrize("season", SESSION_SEASONS)
+def test_todas_as_sessoes_e_o_calendario_de_cada_temporada_estao_no_cadastro(client, data_dir, season):
     # Uma Sessão (local e tipo) fora do Cadastro, no nome de um arquivo ou no Calendário, vira erro
     session_files = [
-        f for f in os.listdir(data_dir / "2026") if f.endswith(".csv") and f not in ("scores.csv", "calendar.csv")
+        f for f in os.listdir(data_dir / season) if f.endswith(".csv") and f not in ("scores.csv", "calendar.csv")
     ]
-    races = client.get("/load/2026/races")
+    races = client.get(f"/load/{season}/races")
 
     assert races.status_code == 200
-    assert len(races.json()) == len(session_files) == 23
-    assert client.get("/load/2026/prediction/drivers").status_code == 200
+    assert len(races.json()) == len(session_files)
+    assert client.get(f"/load/{season}/prediction/drivers").status_code == 200
 
 
 def test_sessoes_de_2025_tem_o_mesmo_race_id_no_cadastro(client, data_dir):

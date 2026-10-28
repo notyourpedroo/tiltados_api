@@ -2,7 +2,7 @@
 """
 Tiltados API — API REST para dados da liga Tiltados F1.
 
-Serve os dados processados pelas funções existentes em scripts/2025 e scripts/2026
+Serve os dados processados pelas funções existentes em scripts/2025 (temporada consolidada) e scripts/sessions (temporadas por Sessão)
 como endpoints JSON via FastAPI.
 
 Para rodar localmente:
@@ -28,8 +28,8 @@ from scripts.errors import DataError
 logger = logging.getLogger("tiltados_api")
 
 # ── Importar scripts existentes ──────────────────────────────────────────────
-# Os diretórios scripts/2025 e scripts/2026 têm nomes numéricos (inválidos como
-# módulos Python), então usamos importlib para importá-los.
+# O diretório scripts/2025 tem nome numérico (inválido como módulo Python), então
+# usamos importlib para importá-lo; scripts/sessions segue o mesmo padrão.
 
 # 2025, no formato consolidado
 load_2025_drivers = importlib.import_module("scripts.2025.load_drivers").load_drivers
@@ -39,14 +39,14 @@ load_2025_results = importlib.import_module("scripts.2025.load_results").load_re
 calculate_2025_standings = importlib.import_module("scripts.2025.calculate_standings").calculate_standings
 
 # Temporadas por Sessão (2026 em diante): o mesmo código serve qualquer ano (docs/adr/0001)
-load_session_drivers = importlib.import_module("scripts.2026.load_drivers").load_drivers
-load_session_teams = importlib.import_module("scripts.2026.load_teams").load_teams
-load_session_races = importlib.import_module("scripts.2026.load_races").load_races
-load_session_results = importlib.import_module("scripts.2026.load_results").load_results
-calculate_session_standings = importlib.import_module("scripts.2026.calculate_standings").calculate_standings
-load_session_punishments = importlib.import_module("scripts.2026.load_punishments").load_punishments
-calculate_session_super_license = importlib.import_module("scripts.2026.calculate_super_license").calculate_super_license
-calculate_session_prediction = importlib.import_module("scripts.2026.calculate_prediction").calculate_prediction
+load_session_drivers = importlib.import_module("scripts.sessions.load_drivers").load_drivers
+load_session_teams = importlib.import_module("scripts.sessions.load_teams").load_teams
+load_session_races = importlib.import_module("scripts.sessions.load_races").load_races
+load_session_results = importlib.import_module("scripts.sessions.load_results").load_results
+calculate_session_standings = importlib.import_module("scripts.sessions.calculate_standings").calculate_standings
+load_session_punishments = importlib.import_module("scripts.sessions.load_punishments").load_punishments
+calculate_session_super_license = importlib.import_module("scripts.sessions.calculate_super_license").calculate_super_license
+calculate_session_prediction = importlib.import_module("scripts.sessions.calculate_prediction").calculate_prediction
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 """Respostas básicas e consistência dos endpoints com os dados reais."""
 
+import re
 from pathlib import Path
 
 import pytest
@@ -8,8 +9,17 @@ from fastapi.routing import APIRoute
 import main
 
 ROOT = Path(__file__).resolve().parents[1]
-SEASONS = ("2025", "2026")
-SESSION_SEASONS = ("2026",)
+# Temporadas dos dados reais, lidas das pastas: 2025 (consolidada) e toda files/{ano}/ com Calendário.
+# Abrir 2027 não pede mudança aqui.
+SESSION_SEASONS = tuple(sorted(
+    d.name for d in (ROOT / "files").iterdir() if re.fullmatch(r"\d{4}", d.name) and (d / "calendar.csv").exists()
+))
+SEASONS = ("2025",) + SESSION_SEASONS
+# Temporadas com alguma Sessão disputada; as outras respondem lista vazia até a primeira Sessão
+PLAYED_SEASONS = ("2025",) + tuple(
+    season for season in SESSION_SEASONS
+    if any(re.fullmatch(r"\w+_(race|sprint)_\d{8}\.csv", f.name) for f in (ROOT / "files" / season).iterdir())
+)
 API_ROUTES = [r.path for r in main.app.routes if isinstance(r, APIRoute) and "GET" in r.methods]
 # Rotas que só existem nas temporadas por Sessão: em 2025 respondem 404 (tests/test_seasons.py)
 SESSION_ONLY_ROUTES = {
@@ -20,25 +30,26 @@ SESSION_ONLY_ROUTES = {
 }
 
 
-def expand(path):
+def expand(path, seasons=SEASONS):
     """
     Troca {season} por cada temporada: '/load/{season}/drivers' -> '/load/2025/drivers', '/load/2026/drivers'.
     As rotas que só existem nas temporadas por Sessão ficam só com elas: '/load/2026/punishments'.
     """
     if "{season}" not in path:
         return [path]
-    seasons = SESSION_SEASONS if path in SESSION_ONLY_ROUTES else SEASONS
+    if path in SESSION_ONLY_ROUTES:
+        seasons = [season for season in seasons if season in SESSION_SEASONS]
     return [path.replace("{season}", season) for season in seasons]
 
 
 # Toda rota da API entra nos testes de resposta automaticamente
-ENDPOINTS = [path for route in API_ROUTES for path in expand(route) if path != "/"]
+ENDPOINTS = [path for route in API_ROUTES for path in expand(route, PLAYED_SEASONS) if path != "/"]
 
 
 def test_root_retorna_versao_da_api(client):
     body = client.get("/").json()
     assert body["version"] == main.API_VERSION
-    assert body["seasons"] == [2025, 2026]
+    assert body["seasons"] == [int(season) for season in SEASONS]
 
 
 @pytest.mark.parametrize("path", ENDPOINTS)
@@ -48,12 +59,12 @@ def test_endpoint_responde_lista_nao_vazia(client, path):
     assert isinstance(response.json(), list) and response.json()
 
 
-@pytest.mark.parametrize("season", ["2027", "2024", "abc"])
+@pytest.mark.parametrize("season", ["1999", "2024", "abc"])
 def test_temporada_inexistente_retorna_404(client, season):
     response = client.get(f"/load/{season}/drivers")
     assert response.status_code == 404
     assert response.json()["detail"] == (
-        f"Temporada {season} não encontrada. Temporadas disponíveis: 2025, 2026."
+        f"Temporada {season} não encontrada. Temporadas disponíveis: {', '.join(SEASONS)}."
     )
 
 

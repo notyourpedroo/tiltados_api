@@ -10,5 +10,5 @@ De 2026 em diante, toda temporada usa o formato por Sessão (um CSV por Corrida 
 ## Consequences
 
 - Abrir um ano novo é uma tarefa de dados: criar `files/{ano}/` com o Calendário e a pontuação, cadastrar o que faltar e subir a `API_VERSION` (que muda o número de temporadas). Nenhuma rota é escrita.
-- A pasta de código ainda se chama `scripts/2026`, embora sirva 2026 e as seguintes. O nome ficou para não misturar a mudança de comportamento com uma renomeação.
+- A pasta de código se chamava `scripts/2026`, embora servisse 2026 e as seguintes, para não misturar a mudança de comportamento com uma renomeação. O nome induzia textos presos a 2026 nos módulos, e a pasta passou a se chamar `scripts/sessions` logo depois.
 - Dois formatos convivem para sempre: uma regra nova de 2026+ não vale para 2025 (a classificação de 2025 fica como foi publicada).

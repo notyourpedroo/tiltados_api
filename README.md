@@ -185,7 +185,7 @@ De 2026 em diante, toda temporada usa o formato por Sessão e o mesmo código (a
 1. Crie `files/2027/` com o Calendário (`calendar.csv`, colunas `local,tipo,data`, todas as Sessões previstas) e a pontuação (`scores.csv`, colunas `score_id,position,points,is_sprint`; copie a de 2026 se a pontuação não mudar).
 2. Cadastre em `files/sessions.csv` toda Sessão do Calendário que ainda não está no Cadastro (um GP inédito ou uma Sprint num GP que não tinha), com o próximo `race_id` livre. Pilotos e equipes estreantes entram em `files/drivers.csv` e `files/teams.csv` antes do primeiro resultado. Os IDs do Cadastro valem para todas as temporadas: não crie um ID novo para quem já está cadastrado.
 3. Suba a `API_VERSION` em `main.py`: o primeiro número é a quantidade de temporadas, então abrir 2027 leva a versão para `v3.{YY}.{MMDD}`. Acrescente as rotas de 2027 à lista `HEALTH_URLS` de `deploy/publicar.sh` (todas as `/load/{season}/...`, inclusive Superlicença, punições e Chance de título).
-   Os testes que conferem os dados reais também mudam: `SEASONS` e a lista `seasons` esperada em `tests/test_endpoints.py` ganham 2027, e o teste que confere o Calendário de 2026 contra o Cadastro (`tests/test_data_rules.py`) ganha o de 2027. Até a primeira Sessão disputada, as rotas de 2027 respondem lista vazia, então o teste que exige lista não vazia (`test_endpoint_responde_lista_nao_vazia`) só deve incluir 2027 depois dela.
+   Os testes não mudam: eles descobrem as temporadas pelas pastas de `files/`, como a API, e só exigem lista não vazia das temporadas que já têm Sessão disputada. O teste do health check falha até as rotas de 2027 entrarem no `HEALTH_URLS`.
 4. Faça o commit e o push. A temporada aparece em `seasons` na rota `/` e responde em `/load/2027/drivers`, `teams`, `races`, `results`, `standings/drivers` e `standings/teams`, e também em `/load/2027/punishments`, `super-license`, `prediction/drivers` e `prediction/teams`.
 
 Até a primeira Sessão disputada, essas rotas respondem lista vazia (`[]`), sem erro. Depois, cada Sessão entra como em "Adicionando uma Nova Corrida", na pasta do ano. As punições de 2027 vão para o mesmo `files/super_license/punishments.csv`, com `season_year` 2027: cada piloto começa a temporada com 12 pontos de Superlicença, e as punições de 2026 não contam em 2027.
@@ -556,7 +556,7 @@ tiltados_api/
 |   `-- sessions.csv        # Cadastro de Sessões: race_id, nome do GP e cidade (2026 em diante)
 |-- scripts/
 |   |-- 2025/               # Módulos de extração e cálculo de 2025
-|   |-- 2026/               # Módulos das temporadas por Sessão (2026 em diante)
+|   |-- sessions/           # Módulos das temporadas por Sessão (2026 em diante)
 |   |   |-- common.py       # Padrão de nome e leitura dos CSVs de sessão
 |   |   `-- load_registry.py # Leitura e validação do Cadastro (pilotos, equipes e Sessões)
 |   `-- errors.py           # DataError e validação dos CSVs (arquivo, coluna, valor)

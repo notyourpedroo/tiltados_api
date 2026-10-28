@@ -4,7 +4,7 @@ Regras para a revisão de mudanças. As mecânicas já são cobradas pelo `ruff`
 
 ## Vocabulário do domínio
 
-- Nomes no código, nos testes, no README e nos commits usam os termos do `GLOSSARY.md` (Etapa, Sessão, Corrida, Sprint, Calendário, Chance de título...). Os sinônimos marcados com _Avoid_ ficam de fora.
+- Nomes no código, nos testes, no README e nos commits usam os termos do `GLOSSARY.md` (Etapa, Sessão, Corrida, Sprint, Calendário, Chance de título...). Os sinônimos marcados com _Avoid_ ficam de fora. Identificadores em inglês traduzem o termo do glossário (Calendário → `calendar`, Cadastro → `registry`); os _Avoid_ valem para o texto em português.
 - Um conceito novo do domínio entra no `GLOSSARY.md` na mesma mudança que o introduz.
 
 ## Erros de dados
@@ -13,7 +13,7 @@ Regras para a revisão de mudanças. As mecânicas já são cobradas pelo `ruff`
 - Cada mensagem nova ganha um cenário em `tests/test_errors.py`.
 - Um erro num arquivo derruba só as rotas que dependem dele; o resto da API segue respondendo.
 
-## Módulos de `scripts/2026`
+## Módulos de `scripts/sessions`
 
 Seguem o formato dos módulos existentes:
 
@@ -27,10 +27,11 @@ Seguem o formato dos módulos existentes:
 - Testam pela API HTTP (`TestClient` sobre a fixture `data_dir`), nunca funções internas.
 - O valor esperado vem de um exemplo calculado à mão ou da spec, nunca recalculado do jeito que o código calcula.
 - Cenários com sorteio verificam propriedades que valem para qualquer sorteio (soma 100%, 0% para `Eliminado`) ou montam dados em que o resultado não depende de sorte.
+- Todo caminho novo do código tem um teste que fica vermelho quando o caminho é desligado. O implementador confirma desligando o trecho e rodando o teste; a revisão pergunta qual teste cobre cada caminho novo, e um caminho sem resposta é um achado, mesmo que o implementador tenha avisado da lacuna.
 
 ## README
 
-Toda rota nova ou regra de negócio nova atualiza o README na mesma mudança: a tabela de endpoints, a seção "Regras de Negócio" e um exemplo de resposta com valores reais.
+Toda rota nova ou regra de negócio nova atualiza o README na mesma mudança: a tabela de endpoints, a seção "Regras de Negócio" e um exemplo de resposta com valores reais. Quando os dados reais ainda não têm o caso novo (um status que nenhum piloto atingiu, por exemplo), o exemplo é hipotético e diz que é.
 
 ## Versão da API
 
