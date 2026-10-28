@@ -34,8 +34,13 @@ def test_endpoint_responde_lista_nao_vazia(client, path):
     assert isinstance(response.json(), list) and response.json()
 
 
-def test_temporada_invalida_retorna_422(client):
-    assert client.get("/load/2027/drivers").status_code == 422
+@pytest.mark.parametrize("season", ["2027", "2024", "abc"])
+def test_temporada_inexistente_retorna_404(client, season):
+    response = client.get(f"/load/{season}/drivers")
+    assert response.status_code == 404
+    assert response.json()["detail"] == (
+        f"Temporada {season} não encontrada. Temporadas disponíveis: 2025, 2026."
+    )
 
 
 @pytest.mark.parametrize("season", SEASONS)

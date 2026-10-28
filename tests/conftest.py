@@ -41,16 +41,23 @@ def replace_in_file(path, old, new):
         f.write(text.replace(old, new, 1))
 
 
-def write_calendar(data_dir, rows):
+def write_calendar(data_dir, rows, season="2026"):
     """
-    Reescreve o Calendário de 2026 com as Sessões (local, tipo, data) dadas.
+    Reescreve o Calendário da temporada (2026, se não for dada) com as Sessões (local, tipo, data) dadas.
     As Sessões fora do Cadastro da cópia são cadastradas antes.
     """
     for local, session_type, _ in rows:
         register_session(data_dir, local, session_type)
     lines = [f"{local},{session_type},{date}\n" for local, session_type, date in rows]
-    with open(data_dir / "2026" / "calendar.csv", "w", encoding="utf-8") as f:
+    with open(data_dir / season / "calendar.csv", "w", encoding="utf-8") as f:
         f.write("local,tipo,data\n" + "".join(lines))
+
+
+def open_season(data_dir, season, calendar_rows):
+    """Abre uma temporada por Sessão na cópia: files/{season}/ com a pontuação de 2026 e o Calendário dado."""
+    os.makedirs(data_dir / season)
+    shutil.copy(data_dir / "2026" / "scores.csv", data_dir / season / "scores.csv")
+    write_calendar(data_dir, calendar_rows, season=season)
 
 
 def reset_2026_season(data_dir):
@@ -93,9 +100,9 @@ def register_session(data_dir, local, session_type):
         f.write(f"{next_id},{local},{session_type},{race_name},{location}\n")
 
 
-def write_session(data_dir, file_name, rows):
+def write_session(data_dir, file_name, rows, season="2026"):
     """
-    Cria um CSV de sessão de 2026 com o cabeçalho do export e as linhas dadas.
+    Cria um CSV de sessão da temporada (2026, se não for dada) com o cabeçalho do export e as linhas dadas.
     Pilotos, equipes e a Sessão (local e tipo do nome do arquivo) fora do Cadastro da cópia são cadastrados antes.
     """
     local, session_type = re.match(r"(\w+)_(race|sprint)_\d{8}\.csv$", file_name).groups()
@@ -106,5 +113,5 @@ def write_session(data_dir, file_name, rows):
         f"{pos},{driver},{team},{grid},2,1:30.000,40:00.000,0,Pessoa\n"
         for pos, driver, team, grid in rows
     ]
-    with open(data_dir / "2026" / file_name, "w", encoding="utf-8") as f:
+    with open(data_dir / season / file_name, "w", encoding="utf-8") as f:
         f.write(SESSION_HEADER + "".join(lines))

@@ -13,7 +13,7 @@ import sys
 try:
     from .common import list_sessions, read_session_results
     from .load_registry import load_registered_teams, require_registered
-    from ..errors import DataError, display_path, require_dir
+    from ..errors import require_dir
 except (ImportError, ValueError):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     for path in (current_dir, os.path.dirname(current_dir)):
@@ -21,19 +21,21 @@ except (ImportError, ValueError):
             sys.path.insert(0, path)
     from common import list_sessions, read_session_results
     from load_registry import load_registered_teams, require_registered
-    from errors import DataError, display_path, require_dir
+    from errors import require_dir
 
 
 def load_teams(base_path="./files/2026", base_path_2025="./files/2025", registry_path=None):
     """
-    Lê os arquivos de resultados de 2026 e extrai as equipes participantes.
+    Lê os arquivos de resultados de uma temporada por Sessão (2026 em diante) e
+    extrai as equipes participantes.
 
-    Gera um DataFrame com as seguintes colunas:
+    Gera um DataFrame com as seguintes colunas (vazio se a temporada ainda não tem
+    Sessão disputada):
     - team_id: ID da equipe no Cadastro (o mesmo em todas as temporadas)
     - team_name: Nome da equipe no Cadastro
 
     Args:
-        base_path (str): Caminho para a pasta dos dados de 2026.
+        base_path (str): Caminho para a pasta da temporada (ex.: './files/2027').
                          Padrão: './files/2026'
         base_path_2025 (str): Não é mais usado (os IDs vêm do Cadastro). Fica na
                               assinatura porque os chamadores passam os mesmos
@@ -41,12 +43,12 @@ def load_teams(base_path="./files/2026", base_path_2025="./files/2025", registry
         registry_path (str): Pasta do Cadastro. Padrão: a pasta acima de `base_path`.
 
     Returns:
-        pd.DataFrame: DataFrame com as equipes de 2026 (team_id, team_name).
+        pd.DataFrame: DataFrame com as equipes da temporada (team_id, team_name).
 
     Raises:
-        DataError: Se a pasta de 2026 não existir, não houver resultados, algum
-                   CSV de sessão for inválido, alguma equipe não estiver no
-                   Cadastro ou o Cadastro for inválido.
+        DataError: Se a pasta da temporada não existir, algum CSV de sessão for
+                   inválido, alguma equipe não estiver no Cadastro ou o Cadastro
+                   for inválido.
     """
     require_dir(base_path)
     if registry_path is None:
@@ -63,9 +65,6 @@ def load_teams(base_path="./files/2026", base_path_2025="./files/2025", registry
             continue
         require_registered(df_session, "Equipe", registered_names, "uma equipe do Cadastro", session["file_path"])
         teams_found.update(df_session["Equipe"].astype(str).str.strip())
-
-    if not teams_found:
-        raise DataError(f"Nenhum resultado encontrado nos CSVs de {display_path(base_path)}.")
 
     df_teams = df_registered[df_registered["team_name"].isin(teams_found)]
     df_teams = df_teams.sort_values("team_id").reset_index(drop=True)

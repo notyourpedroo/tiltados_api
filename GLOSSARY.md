@@ -8,6 +8,9 @@ Liga de F1 entre amigos. A API consolida os resultados de cada temporada e calcu
 A lista oficial dos pilotos, das equipes e das Sessões da liga, cada um com um ID que vale para todas as temporadas a partir de 2026. Uma Sessão do Cadastro é um local com o tipo (Corrida ou Sprint), com o nome oficial do GP e a cidade: a Sprint de Silverstone tem o mesmo ID em qualquer temporada. Um piloto, equipe ou Sessão só entra nos resultados ou no Calendário depois de cadastrado: a estreia é uma decisão explícita, nunca o efeito de um nome novo nos resultados.
 _Avoid_: registro, base de pilotos
 
+**Temporada por Sessão**:
+Uma temporada guardada como um CSV por Sessão, mais o Calendário, com pilotos, equipes e Sessões do Cadastro. Vale de 2026 em diante, e uma temporada assim existe quando a sua pasta de dados tem Calendário. A temporada 2025 é a única no formato consolidado, com os IDs já nos seus próprios CSVs.
+
 ## Calendário
 
 **Etapa**:

@@ -234,7 +234,8 @@ def test_placeholder_nao_afeta_endpoints_que_nao_dependem_de_pilotos(client, dat
 
 
 def test_erro_no_calendario_nao_afeta_endpoints_que_nao_dependem_dele(client, data_dir):
-    os.remove(data_dir / CALENDAR)
+    # Sem remover o Calendário: uma pasta sem Calendário deixa de ser temporada (404, em test_seasons.py)
+    replace_in_file(data_dir / CALENDAR, "mexico,race,", "mexico,corrida,")
     assert client.get(PREDICTION).status_code == 500
     assert client.get("/load/2026/standings/drivers").status_code == 200
     assert client.get("/load/2025/standings/drivers").status_code == 200

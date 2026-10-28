@@ -37,15 +37,17 @@ def _is_placeholder_driver(value):
 
 def load_drivers(base_path="./files/2026", base_path_2025="./files/2025", registry_path=None):
     """
-    Lê os arquivos de resultados de 2026 e extrai os pilotos participantes.
+    Lê os arquivos de resultados de uma temporada por Sessão (2026 em diante) e
+    extrai os pilotos participantes.
 
-    Gera um DataFrame com as seguintes colunas:
+    Gera um DataFrame com as seguintes colunas (vazio se a temporada ainda não tem
+    Sessão disputada):
     - driver_id: ID do piloto no Cadastro (o mesmo em todas as temporadas)
     - team_id: ID, no Cadastro, da equipe na sessão mais recente do piloto
     - driver_name: Nome do piloto no Cadastro
 
     Args:
-        base_path (str): Caminho para a pasta dos dados de 2026.
+        base_path (str): Caminho para a pasta da temporada (ex.: './files/2027').
                          Padrão: './files/2026'
         base_path_2025 (str): Não é mais usado (os IDs vêm do Cadastro). Fica na
                               assinatura porque os chamadores passam os mesmos
@@ -53,10 +55,10 @@ def load_drivers(base_path="./files/2026", base_path_2025="./files/2025", regist
         registry_path (str): Pasta do Cadastro. Padrão: a pasta acima de `base_path`.
 
     Returns:
-        pd.DataFrame: DataFrame com os pilotos de 2026 (driver_id, team_id, driver_name).
+        pd.DataFrame: DataFrame com os pilotos da temporada (driver_id, team_id, driver_name).
 
     Raises:
-        DataError: Se a pasta de 2026 não existir, algum CSV de sessão for inválido,
+        DataError: Se a pasta da temporada não existir, algum CSV de sessão for inválido,
                    algum resultado tiver o piloto vazio ou como 'Pessoa', algum
                    piloto ou equipe não estiver no Cadastro ou o Cadastro for inválido.
     """
@@ -88,9 +90,6 @@ def load_drivers(base_path="./files/2026", base_path_2025="./files/2025", regist
         for _, row in df_session.iterrows():
             driver_team_map[str(row["Piloto"]).strip()] = str(row["Equipe"]).strip()
 
-    if not driver_team_map:
-        raise DataError(f"Nenhum resultado encontrado nos CSVs de {display_path(base_path)}.")
-
     # 2. IDs das equipes vêm de load_teams, que também confere o Cadastro de equipes
     df_teams = load_teams(base_path=base_path, registry_path=registry_path)
     team_id_map = dict(zip(df_teams["team_name"], df_teams["team_id"]))
@@ -103,7 +102,7 @@ def load_drivers(base_path="./files/2026", base_path_2025="./files/2025", regist
             "driver_name": driver_name,
         }
         for driver_name, team_name in driver_team_map.items()
-    ])
+    ], columns=["driver_id", "team_id", "driver_name"])
     df_drivers = df_drivers.sort_values("driver_id").reset_index(drop=True)
     df_drivers["driver_id"] = df_drivers["driver_id"].astype(int)
     df_drivers["team_id"] = df_drivers["team_id"].astype(int)

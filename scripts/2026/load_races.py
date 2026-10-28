@@ -26,12 +26,16 @@ except (ImportError, ValueError):
     from errors import DataError, display_path, require_dir
 
 
+RACE_COLUMNS = ["race_id", "race_name", "race_date", "race_location", "is_sprint"]
+
+
 def load_races(base_path="./files/2026", base_path_2025="./files/2025", registry_path=None):
     """
-    Lê os arquivos de resultados de 2026 e gera o DataFrame de corridas,
-    com o race_id, o nome e a cidade de cada Sessão vindos do Cadastro.
+    Lê os arquivos de resultados de uma temporada por Sessão (2026 em diante) e gera
+    o DataFrame de corridas, com o race_id, o nome e a cidade de cada Sessão vindos do Cadastro.
 
-    Gera um DataFrame, em ordem cronológica, com as seguintes colunas:
+    Gera um DataFrame, em ordem cronológica, com as seguintes colunas (vazio se a
+    temporada ainda não tem Sessão disputada):
     - race_id: ID da Sessão no Cadastro (o mesmo em todas as temporadas)
     - race_name: Nome do GP no Cadastro; na Sprint, com o sufixo (ex: 'GP da China (SPRINT)')
     - race_date: Data da corrida (formato YYYY-MM-DD), a do nome do arquivo
@@ -39,7 +43,7 @@ def load_races(base_path="./files/2026", base_path_2025="./files/2025", registry
     - is_sprint: Indica se é uma corrida sprint (True/False)
 
     Args:
-        base_path (str): Caminho para a pasta dos dados de 2026.
+        base_path (str): Caminho para a pasta da temporada (ex.: './files/2027').
                          Padrão: './files/2026'
         base_path_2025 (str): Não é mais usado (os IDs vêm do Cadastro). Fica na
                               assinatura porque os chamadores passam os mesmos
@@ -47,12 +51,12 @@ def load_races(base_path="./files/2026", base_path_2025="./files/2025", registry
         registry_path (str): Pasta do Cadastro. Padrão: a pasta acima de `base_path`.
 
     Returns:
-        pd.DataFrame: DataFrame com as corridas de 2026.
+        pd.DataFrame: DataFrame com as corridas da temporada.
 
     Raises:
-        DataError: Se a pasta de 2026 não existir, não houver sessões, o Cadastro de
-                   Sessões for inválido ou o local e o tipo no nome de um arquivo de
-                   sessão não estiverem no Cadastro.
+        DataError: Se a pasta da temporada não existir, o Cadastro de Sessões for
+                   inválido ou o local e o tipo no nome de um arquivo de sessão não
+                   estiverem no Cadastro.
     """
     require_dir(base_path)
     if registry_path is None:
@@ -67,16 +71,9 @@ def load_races(base_path="./files/2026", base_path_2025="./files/2025", registry
         )
     }
 
-    # Sessões de 2026, já em ordem cronológica
-    sessions = list_sessions(base_path)
-    if not sessions:
-        raise DataError(
-            f"Nenhuma sessão encontrada em {display_path(base_path)} "
-            "(nome esperado: {local}_{race|sprint}_{YYYYMMDD}.csv)."
-        )
-
+    # Sessões disputadas da temporada, já em ordem cronológica (nenhuma no início da temporada)
     parsed_races = []
-    for session in sessions:
+    for session in list_sessions(base_path):
         key = (session["local"], session["is_sprint"])
         if key not in registered:
             raise DataError(
@@ -94,7 +91,7 @@ def load_races(base_path="./files/2026", base_path_2025="./files/2025", registry
             "is_sprint": session["is_sprint"],
         })
 
-    df_races = pd.DataFrame(parsed_races)
+    df_races = pd.DataFrame(parsed_races, columns=RACE_COLUMNS)
     df_races["race_id"] = df_races["race_id"].astype(int)
     df_races["is_sprint"] = df_races["is_sprint"].astype(bool)
 

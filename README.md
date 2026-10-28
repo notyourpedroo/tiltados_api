@@ -1,6 +1,6 @@
 # Tiltados API
 
-API REST desenvolvida em FastAPI para consolidar e servir os dados das temporadas de 2025 e 2026 da liga Tiltados F1.
+API REST desenvolvida em FastAPI para consolidar e servir os dados das temporadas da liga Tiltados F1: 2025, no formato consolidado, e as temporadas por Sessão, de 2026 em diante.
 
 ## Requisitos
 
@@ -104,7 +104,7 @@ ruff check .
 pytest
 ```
 
-Os testes rodam sobre uma cópia de `files/` em uma pasta temporária, então podem alterar ou quebrar CSVs sem tocar nos dados reais. Eles cobrem os endpoints, a consistência dos dados (IDs, pontos, superlicença), as regras de 2026 (IDs do Cadastro iguais aos de 2025, equipe atual do piloto, recarga do cache) e as mensagens de erro para CSVs inválidos.
+Os testes rodam sobre uma cópia de `files/` em uma pasta temporária, então podem alterar ou quebrar CSVs sem tocar nos dados reais. Eles cobrem os endpoints, a consistência dos dados (IDs, pontos, superlicença), a descoberta das temporadas pelas pastas (uma temporada montada na cópia, com e sem Sessão disputada), as regras de 2026 (IDs do Cadastro iguais aos de 2025, equipe atual do piloto, recarga do cache) e as mensagens de erro para CSVs inválidos.
 
 Toda rota da API entra sozinha nos testes de resposta. Uma rota nova também precisa aparecer na tabela de "Endpoints Disponíveis" e na lista `HEALTH_URLS` de `deploy/publicar.sh`, senão os testes falham.
 
@@ -114,9 +114,9 @@ Um dos testes exige que toda Sessão de `files/2026/` (nos nomes dos arquivos e 
 
 Os dados são lidos dos CSVs em `files/` e guardados em cache. O cache é invalidado sozinho sempre que um CSV é adicionado, editado ou removido, então **não é preciso reiniciar o servidor** para ver os dados novos.
 
-Isso vale para qualquer arquivo em `files/` (2025, 2026, `super_license` e o Cadastro). Mudanças no código Python (`main.py` ou `scripts/`) ainda exigem reiniciar o servidor, ou usar `--reload`.
+Isso vale para qualquer arquivo em `files/` (2025, 2026, `super_license` e o Cadastro), inclusive para uma temporada nova: a pasta `files/{ano}/` com o Calendário aparece na API sem reiniciar. O cache guarda cada recurso de cada temporada separado. Mudanças no código Python (`main.py` ou `scripts/`) ainda exigem reiniciar o servidor, ou usar `--reload`.
 
-Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor inválido), os endpoints que dependem dele retornam HTTP 500 com a causa em `detail`, indicando o arquivo e a linha a corrigir. Por exemplo:
+Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor inválido), os endpoints que dependem dele retornam HTTP 500 com a causa em `detail`, indicando o arquivo e a linha a corrigir. Um erro nos CSVs de uma temporada não afeta as rotas das outras (o Cadastro é o mesmo para todas as temporadas por Sessão, então um erro nele afeta todas elas). Por exemplo:
 
 ```json
 {"detail": "2026/japao_race_20260323.csv, linha 2: coluna 'Grid' com valor 'X' (esperado um número inteiro)."}
@@ -176,9 +176,26 @@ Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor invá
 
 A pontuação de cada posição vem de `files/2026/scores.csv` (colunas `position`, `points`, `is_sprint`).
 
+Os passos valem para qualquer temporada por Sessão: em 2027, os CSVs vão para `files/2027/`.
+
+## Abrindo uma Temporada Nova
+
+De 2026 em diante, toda temporada usa o formato por Sessão e o mesmo código (a decisão está em `docs/adr/0001-temporadas-por-sessao-com-cadastro-global.md`). Uma temporada existe quando a pasta `files/{ano}/` tem o Calendário: não há lista de temporadas no código. Para abrir 2027:
+
+1. Crie `files/2027/` com o Calendário (`calendar.csv`, colunas `local,tipo,data`, todas as Sessões previstas) e a pontuação (`scores.csv`, colunas `score_id,position,points,is_sprint`; copie a de 2026 se a pontuação não mudar).
+2. Cadastre em `files/sessions.csv` toda Sessão do Calendário que ainda não está no Cadastro (um GP inédito ou uma Sprint num GP que não tinha), com o próximo `race_id` livre. Pilotos e equipes estreantes entram em `files/drivers.csv` e `files/teams.csv` antes do primeiro resultado. Os IDs do Cadastro valem para todas as temporadas: não crie um ID novo para quem já está cadastrado.
+3. Suba a `API_VERSION` em `main.py`: o primeiro número é a quantidade de temporadas, então abrir 2027 leva a versão para `v3.{YY}.{MMDD}`. Acrescente as rotas de 2027 à lista `HEALTH_URLS` de `deploy/publicar.sh`.
+4. Faça o commit e o push. A temporada aparece em `seasons` na rota `/` e responde em `/load/2027/drivers`, `teams`, `races`, `results`, `standings/drivers` e `standings/teams`.
+
+Até a primeira Sessão disputada, essas rotas respondem lista vazia (`[]`), sem erro. Depois, cada Sessão entra como em "Adicionando uma Nova Corrida", na pasta do ano. Superlicença, punições e Chance de título ainda só existem para 2026.
+
 ## Endpoints Disponíveis
 
-O parâmetro `{season}` aceita os valores `2025` ou `2026`.
+O parâmetro `{season}` aceita o ano de qualquer temporada servida pela API, listadas em `seasons` na rota `/`: hoje, `2025` e `2026`. Uma temporada inexistente responde `404`, com a causa em `detail`:
+
+```json
+{"detail": "Temporada 2027 não encontrada. Temporadas disponíveis: 2025, 2026."}
+```
 
 | Método | Endpoint | Descrição |
 |---|---|---|
@@ -503,16 +520,17 @@ Aqui o Motivo fica no texto genérico porque o Gabriel, piloto atual da Visa Cas
 tiltados_api/
 |-- .github/workflows/      # CI/CD: testes e deploy automático (deploy.yml)
 |-- deploy/                 # Scripts do servidor (preparação única e publicação)
+|-- docs/adr/               # Decisões de arquitetura (ADRs)
 |-- files/
 |   |-- 2025/               # CSVs consolidados da temporada 2025
-|   |-- 2026/               # CSVs de cada sessão da temporada 2026 (+ scores.csv e calendar.csv)
+|   |-- 2026/               # CSVs de cada sessão da temporada 2026 (+ scores.csv e calendar.csv); 2027 em diante, igual
 |   |-- super_license/      # Arquivo de punições da superlicença
 |   |-- drivers.csv         # Cadastro de pilotos (2026 em diante)
 |   |-- teams.csv           # Cadastro de equipes (2026 em diante)
 |   `-- sessions.csv        # Cadastro de Sessões: race_id, nome do GP e cidade (2026 em diante)
 |-- scripts/
 |   |-- 2025/               # Módulos de extração e cálculo de 2025
-|   |-- 2026/               # Módulos de extração e cálculo de 2026
+|   |-- 2026/               # Módulos das temporadas por Sessão (2026 em diante)
 |   |   |-- common.py       # Padrão de nome e leitura dos CSVs de sessão
 |   |   `-- load_registry.py # Leitura e validação do Cadastro (pilotos, equipes e Sessões)
 |   `-- errors.py           # DataError e validação dos CSVs (arquivo, coluna, valor)

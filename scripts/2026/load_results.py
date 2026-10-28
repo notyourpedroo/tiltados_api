@@ -29,11 +29,19 @@ except (ImportError, ValueError):
     from errors import require_dir
 
 
+RESULT_COLUMNS = [
+    "race_id", "driver_id", "team_id", "driver_start_position",
+    "driver_final_position", "grid_result", "driver_fastest_lap",
+]
+
+
 def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
     """
-    Lê os arquivos CSV de 2026 e retorna o DataFrame com os resultados consolidados.
+    Lê os arquivos CSV de uma temporada por Sessão (2026 em diante) e retorna o
+    DataFrame com os resultados consolidados.
 
-    Gera um DataFrame com as seguintes colunas (mesmo schema de 2025):
+    Gera um DataFrame com as seguintes colunas (mesmo schema de 2025; vazio se a
+    temporada ainda não tem Sessão disputada):
     - race_id: ID da corrida/sprint no Cadastro de Sessões
     - driver_id: ID único do piloto
     - team_id: ID único da equipe
@@ -43,17 +51,17 @@ def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
     - driver_fastest_lap: Volta mais rápida na sessão
 
     Args:
-        base_path (str): Caminho para a pasta dos dados de 2026.
+        base_path (str): Caminho para a pasta da temporada (ex.: './files/2027').
                          Padrão: './files/2026'
         base_path_2025 (str): Não é mais usado (os IDs vêm do Cadastro). Fica na
                               assinatura porque os chamadores passam os mesmos
                               caminhos a todos os loaders de 2026.
 
     Returns:
-        pd.DataFrame: DataFrame com os resultados das sessões de 2026.
+        pd.DataFrame: DataFrame com os resultados das sessões da temporada.
 
     Raises:
-        DataError: Se a pasta de 2026 não existir, algum CSV de sessão for inválido,
+        DataError: Se a pasta da temporada não existir, algum CSV de sessão for inválido,
                    algum resultado tiver o piloto vazio ou como 'Pessoa' ou algum
                    piloto, equipe ou Sessão não estiver no Cadastro.
     """
@@ -90,7 +98,7 @@ def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
                 "driver_fastest_lap": str(row.get("Melhor tempo", "")).strip()
             })
 
-    df_results = pd.DataFrame(all_results)
+    df_results = pd.DataFrame(all_results, columns=RESULT_COLUMNS)
     df_results["race_id"] = df_results["race_id"].astype(int)
     df_results["driver_id"] = df_results["driver_id"].astype(int)
     df_results["team_id"] = df_results["team_id"].astype(int)
