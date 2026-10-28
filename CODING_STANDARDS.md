@@ -33,6 +33,10 @@ Seguem o formato dos módulos existentes:
 
 Toda rota nova ou regra de negócio nova atualiza o README na mesma mudança: a tabela de endpoints, a seção "Regras de Negócio" e um exemplo de resposta com valores reais. Quando os dados reais ainda não têm o caso novo (um status que nenhum piloto atingiu, por exemplo), o exemplo é hipotético e diz que é.
 
+## Contrato com o site
+
+O site (`notyourpedroo/tiltados_web`) espelha os valores de `status` e os campos das respostas nos tipos dele. Uma mudança que troca, tira ou acrescenta um valor de `status` ou um campo de resposta leva junto uma issue no `tiltados_web` descrevendo a mudança. A revisão pede o link da issue; sem ele, é um achado.
+
 ## Versão da API
 
 `API_VERSION` (em `main.py`) segue `v{temporadas}.{YY}.{MMDD}`:
