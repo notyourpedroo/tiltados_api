@@ -32,7 +32,7 @@ _Avoid_: sessão futura
 ## Campeonato
 
 **Campeão**:
-O piloto em 1º na classificação de pilotos depois da última Sessão do Calendário, com desempate por pontos, depois vitórias em Corridas, depois pódios. Passa a ser chamado Campeão assim que nenhum rival alcança mais os seus pontos.
+O piloto em 1º na classificação de pilotos depois da última Sessão do Calendário, com desempate por pontos, depois vitórias em Corridas, depois pódios (Corridas e Sprints), depois mais 2ºs lugares em Corridas, mais 3ºs, e assim por diante, e por fim quem conseguiu primeiro o seu melhor resultado em Corridas. Passa a ser chamado Campeão assim que nenhum rival alcança mais os seus pontos.
 _Avoid_: vencedor da temporada
 
 **Campeão de Construtores**:

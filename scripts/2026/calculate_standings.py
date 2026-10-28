@@ -4,10 +4,16 @@ Calcular a tabela de classificação (standings) de 2026.
 
 Este módulo cruza os resultados das corridas de 2026 com o sistema de pontuação (scores.csv)
 para calcular a pontuação total, vitórias, pódios e posições de pilotos e construtores.
+
+Desempate, para pilotos e equipes: pontos; vitórias em Corridas; pódios (Corridas e Sprints);
+mais 2ºs lugares em Corridas, depois mais 3ºs, e assim por diante; quem conseguiu primeiro
+o seu melhor resultado em Corridas; e, por fim, a ordem do ID.
 """
 
 import os
 import sys
+
+import numpy as np
 
 # Suporta tanto importação relativa de pacote quanto execução direta de script
 try:
@@ -39,10 +45,9 @@ def _calculate_base_points(base_path="./files/2026", base_path_2025="./files/202
     df_results = load_results(base_path=base_path, base_path_2025=base_path_2025)
     df_races = load_races(base_path=base_path, base_path_2025=base_path_2025)
 
-    # Cruzar com corridas para obter is_sprint
-    merged = df_results.merge(
-        df_races[["race_id", "is_sprint"]], on="race_id", how="left"
-    )
+    # Cruzar com corridas para obter is_sprint e a ordem cronológica da Sessão (load_races já vem em ordem)
+    df_races = df_races[["race_id", "is_sprint"]].assign(session_order=range(len(df_races)))
+    merged = df_results.merge(df_races, on="race_id", how="left")
 
     # Cruzar com pontuações
     merged = merged.merge(
@@ -54,6 +59,75 @@ def _calculate_base_points(base_path="./files/2026", base_path_2025="./files/202
     merged["points"] = merged["points"].fillna(0).astype(int)
 
     return merged
+
+
+def count_race_finishes(race_results, ids, by):
+    """
+    Conta as posições de cada piloto ou equipe em Corridas, para o desempate da classificação.
+
+    `race_results` tem uma linha por resultado em Corridas (sem Sprints), com as colunas
+    `by` (driver_id ou team_id), driver_final_position e session_order (ordem cronológica
+    da Sessão). Numa equipe, os resultados de todos os seus pilotos somam.
+
+    Retorna a tupla (finishes, first_best), alinhada a `ids`:
+    - finishes: matriz com quantas vezes cada um terminou em 2º, 3º... em Corridas
+      (coluna 0 = 2º lugar, até a pior posição registrada);
+    - first_best: session_order da primeira Corrida em que conseguiu o seu melhor resultado
+      (infinito para quem não disputou Corridas).
+
+    Não lança DataError: recebe dados já validados pelos loaders.
+    """
+    ids = list(ids)
+    row_of = {competitor: i for i, competitor in enumerate(ids)}
+    positions = race_results["driver_final_position"].to_numpy(dtype=int)
+    worst = int(positions.max()) if len(positions) else 1
+
+    finishes = np.zeros((len(ids), max(worst - 1, 0)), dtype=int)
+    first_best = np.full(len(ids), np.inf)
+    best = np.full(len(ids), np.inf)
+
+    for competitor, position, order in zip(race_results[by], positions, race_results["session_order"]):
+        i = row_of.get(competitor)
+        if i is None:
+            continue
+        if position >= 2:
+            finishes[i, position - 2] += 1
+        if position < best[i] or (position == best[i] and order < first_best[i]):
+            best[i], first_best[i] = position, order
+
+    return finishes, first_best
+
+
+def standings_order(points, wins, podiums, finishes, first_best, ids):
+    """
+    Índices dos pilotos ou equipes na ordem da classificação, pela regra completa de desempate.
+
+    Recebe arrays alinhados (um item por piloto ou equipe): pontos, vitórias em Corridas, pódios,
+    `finishes` e `first_best` de `count_race_finishes` e os IDs. A ordem é: mais pontos; mais
+    vitórias; mais pódios; mais 2ºs em Corridas, depois mais 3ºs, e assim por diante; quem
+    conseguiu primeiro o seu melhor resultado em Corridas; e, por fim, o menor ID.
+
+    Não lança DataError.
+    """
+    finishes = np.asarray(finishes)
+    by_position = [-finishes[:, k] for k in reversed(range(finishes.shape[1]))]
+    # np.lexsort usa a última chave como a principal
+    keys = [np.asarray(ids), np.asarray(first_best)] + by_position + [
+        -np.asarray(podiums), -np.asarray(wins), -np.asarray(points)
+    ]
+    return np.lexsort(keys)
+
+
+def _sort_standings(stats, merged, by):
+    """Ordena a classificação (`stats`, uma linha por `by`) pela regra de desempate e numera as posições."""
+    finishes, first_best = count_race_finishes(merged[~merged["is_sprint"]], stats[by], by)
+    order = standings_order(
+        stats["points"].to_numpy(), stats["wins"].to_numpy(), stats["podiums"].to_numpy(),
+        finishes, first_best, stats[by].to_numpy()
+    )
+    stats = stats.iloc[order].reset_index(drop=True)
+    stats["position"] = range(1, len(stats) + 1)
+    return stats
 
 
 def calculate_driver_standings(base_path="./files/2026", base_path_2025="./files/2025"):
@@ -89,12 +163,7 @@ def calculate_driver_standings(base_path="./files/2026", base_path_2025="./files
     driver_stats = driver_stats.merge(df_drivers[["driver_id", "driver_name", "team_id"]], on="driver_id")
     driver_stats = driver_stats.merge(df_teams[["team_id", "team_name"]], on="team_id")
 
-    # Ordenar por pontuação, desempate por vitórias em GP e depois pódios
-    driver_stats = driver_stats.sort_values(
-        by=["points", "wins", "podiums"], ascending=False
-    ).reset_index(drop=True)
-
-    driver_stats["position"] = range(1, len(driver_stats) + 1)
+    driver_stats = _sort_standings(driver_stats, merged, "driver_id")
 
     cols = [
         "position", "driver_id", "driver_name", "team_id", "team_name",
@@ -128,11 +197,7 @@ def calculate_team_standings(base_path="./files/2026", base_path_2025="./files/2
 
     team_stats = team_stats.merge(df_teams[["team_id", "team_name"]], on="team_id")
 
-    team_stats = team_stats.sort_values(
-        by=["points", "wins", "podiums"], ascending=False
-    ).reset_index(drop=True)
-
-    team_stats["position"] = range(1, len(team_stats) + 1)
+    team_stats = _sort_standings(team_stats, merged, "team_id")
 
     cols = ["position", "team_id", "team_name", "points", "wins", "podiums"]
     return team_stats[cols]

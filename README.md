@@ -176,7 +176,8 @@ O parâmetro `{season}` aceita os valores `2025` ou `2026`.
 
 **Classificação (pilotos e construtores)**
 - Pontos vêm de `scores.csv`, cruzando a posição final com o tipo da sessão (corrida ou sprint).
-- Desempate: pontos, depois vitórias em GP, depois pódios.
+- Desempate (2026): pontos; vitórias em Corridas; pódios (Corridas e Sprints); mais 2ºs lugares em Corridas, depois mais 3ºs, e assim por diante; quem conseguiu primeiro (na Sessão mais antiga) o seu melhor resultado em Corridas; e, se ainda empatar (por exemplo, nenhum dos dois disputou Corridas), a ordem do ID. Nos construtores, a contagem soma as posições dos pilotos da equipe em cada Corrida, e o melhor resultado é o de qualquer piloto da equipe.
+- Desempate (2025): pontos, depois vitórias em Corridas, depois pódios, e então a ordem do ID. A classificação de 2025 fica como foi publicada.
 - `races` conta sessões disputadas, ou seja, corridas e sprints somadas. `wins` conta apenas corridas (GP); `sprint_wins` conta apenas sprints.
 
 **Superlicença (2026)**
