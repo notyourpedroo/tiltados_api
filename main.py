@@ -65,7 +65,7 @@ def _files_path(season: int) -> str:
 
 
 def _files_path_2025() -> str:
-    """Caminho absoluto para files/2025 (base de mapeamento)."""
+    """Caminho absoluto para files/2025."""
     return os.path.join(BASE_DIR, "files", "2025")
 
 

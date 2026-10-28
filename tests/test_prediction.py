@@ -8,7 +8,7 @@ from conftest import reset_2026_season, write_calendar, write_session
 DRIVERS = "/load/2026/prediction/drivers"
 TEAMS = "/load/2026/prediction/teams"
 TEAM = "Red Bull"
-# Locais do LOCATION_MAP usados nas temporadas sintéticas
+# Locais do Cadastro de Sessões usados nas temporadas sintéticas
 PLAYED = ["australia", "china", "japao", "bahrein", "arabia_saudita", "miami"]
 PENDING = ["mexico", "brasil", "las_vegas", "catar", "abu_dhabi"]
 

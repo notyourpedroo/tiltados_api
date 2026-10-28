@@ -1,0 +1,35 @@
+race_id,local,tipo,race_name,race_location
+1,australia,race,GP da Austrália,Melbourne
+2,china,sprint,GP da China,Xangai
+3,china,race,GP da China,Xangai
+4,japao,race,GP do Japão,Suzuka
+5,bahrein,race,GP do Barém,Sakhir
+6,arabia_saudita,race,GP da Arábia Saudita,Gidá
+7,miami,sprint,GP de Miami,Miami Gardens
+8,miami,race,GP de Miami,Miami Gardens
+9,emilia_romanha,race,GP da Emília-Romanha,Ímola
+10,monaco,race,GP de Mônaco,Monte Carlo
+11,espanha,race,GP da Espanha,Montmeló
+12,canada,race,GP do Canadá,Montreal
+13,austria,race,GP da Áustria,Spielberg
+14,silverstone,race,GP da Grã-Bretanha,Silverstone
+15,spa,sprint,GP da Bélgica,Spa-Francorchamps
+16,spa,race,GP da Bélgica,Spa-Francorchamps
+17,hungria,race,GP da Hungria,Mogyoród
+18,holanda,race,GP dos Países Baixos,Zandvoort
+19,italia,race,GP da Itália,Monza
+20,azerbaijao,race,GP do Azerbaijão,Bacu
+21,singapura,race,GP de Singapura,Marina Bay
+22,estados_unidos,sprint,GP dos Estados Unidos,Austin
+23,estados_unidos,race,GP dos Estados Unidos,Austin
+24,mexico,race,GP da Cidade do México,Cidade do México
+25,brasil,sprint,GP de São Paulo,São Paulo
+26,brasil,race,GP de São Paulo,São Paulo
+27,las_vegas,race,GP de Las Vegas,Las Vegas
+28,catar,sprint,GP do Catar,Lusail
+29,catar,race,GP do Catar,Lusail
+30,abu_dhabi,race,GP de Abu Dhabi,Abu Dhabi
+31,canada,sprint,GP do Canadá,Montreal
+32,silverstone,sprint,GP da Grã-Bretanha,Silverstone
+33,holanda,sprint,GP dos Países Baixos,Zandvoort
+34,singapura,sprint,GP de Singapura,Marina Bay

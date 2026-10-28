@@ -1,23 +1,53 @@
 """Regras de montagem dos dados de 2026: IDs entre temporadas, equipe atual e recarga do cache."""
 
-import importlib
+import csv
 import os
 
-from conftest import replace_in_file, write_session
-
-common = importlib.import_module("scripts.2026.common")
+from conftest import replace_in_file, reset_2026_season, write_session
 
 
 def races_by_name(client, season):
     return {r["race_name"]: r for r in client.get(f"/load/{season}/races").json()}
 
 
-def test_todos_os_locais_de_2026_estao_no_location_map(data_dir):
-    # Um local fora do mapa gera nome derivado do arquivo e race_id novo (ex.: "GP de Spa").
-    for file_name in os.listdir(data_dir / "2026"):
-        match = common.SESSION_FILE_PATTERN.match(file_name)
-        if match:
-            assert match.group(1).lower() in common.LOCATION_MAP, file_name
+def test_todas_as_sessoes_e_o_calendario_de_2026_estao_no_cadastro(client, data_dir):
+    # Uma Sessão (local e tipo) fora do Cadastro, no nome de um arquivo ou no Calendário, vira erro
+    session_files = [
+        f for f in os.listdir(data_dir / "2026") if f.endswith(".csv") and f not in ("scores.csv", "calendar.csv")
+    ]
+    races = client.get("/load/2026/races")
+
+    assert races.status_code == 200
+    assert len(races.json()) == len(session_files) == 23
+    assert client.get("/load/2026/prediction/drivers").status_code == 200
+
+
+def test_sessoes_de_2025_tem_o_mesmo_race_id_no_cadastro(client, data_dir):
+    # Uma Sessão de 2026 para cada linha do Cadastro faz /load/2026/races mostrar o race_id de cada uma.
+    reset_2026_season(data_dir)
+    with open(data_dir / "sessions.csv", encoding="utf-8") as f:
+        registered = [(row["local"], row["tipo"]) for row in csv.DictReader(f)]
+    for i, (local, session_type) in enumerate(registered):
+        write_session(data_dir, f"{local}_{session_type}_2026{1 + i // 28:02d}{1 + i % 28:02d}.csv",
+                      [(1, "Bryan", "Scuderia Ferrari HP", 1)])
+
+    def ids(season):
+        return {name: (r["race_id"], r["race_location"], r["is_sprint"])
+                for name, r in races_by_name(client, season).items()}
+
+    ids_2025, ids_2026 = ids("2025"), ids("2026")
+    assert len(ids_2025) == 30 and len(ids_2026) == 34
+    for name, race in ids_2025.items():
+        assert ids_2026.get(name) == race, name
+
+
+def test_sprints_ineditas_de_2026_tem_os_ids_31_a_34(client):
+    races = races_by_name(client, "2026")
+
+    assert races["GP do Canadá (SPRINT)"]["race_id"] == 31
+    assert races["GP da Grã-Bretanha (SPRINT)"]["race_id"] == 32
+    assert races["GP dos Países Baixos (SPRINT)"]["race_id"] == 33
+    assert races["GP de Singapura (SPRINT)"]["race_id"] == 34
 
 
 def test_gps_de_2026_reaproveitam_o_race_id_de_2025(client):
@@ -52,13 +82,32 @@ def test_equipe_do_piloto_e_a_da_sessao_mais_recente(client, data_dir):
     assert mike["team_id"] == teams["Scuderia Ferrari HP"]
 
 
-def test_gp_novo_recebe_race_id_novo(client, data_dir):
-    before_races = client.get("/load/2026/races").json()
+def test_sessao_salva_antes_das_outras_nao_muda_o_race_id_de_ninguem(client, data_dir):
+    before = {r["race_name"]: r["race_id"] for r in client.get("/load/2026/races").json()}
 
-    write_session(data_dir, "imola_sprint_20261020.csv", [(1, "Bryan", "Scuderia Ferrari HP", 1)])
+    # Uma Sprint na Austrália, antes de todas as Sessões de 2026, cadastrada com o ID 35
+    replace_in_file(data_dir / "sessions.csv", "34,singapura,sprint,GP de Singapura,Marina Bay\n",
+                    "34,singapura,sprint,GP de Singapura,Marina Bay\n35,australia,sprint,GP da Austrália,Melbourne\n")
+    write_session(data_dir, "australia_sprint_20260301.csv", [(1, "Bryan", "Scuderia Ferrari HP", 1)])
 
-    race = races_by_name(client, "2026")["GP de Imola (SPRINT)"]
-    assert race["race_id"] > max(r["race_id"] for r in before_races)
+    after = {r["race_name"]: r["race_id"] for r in client.get("/load/2026/races").json()}
+    assert after == {**before, "GP da Austrália (SPRINT)": 35}
+    assert before["GP do Canadá (SPRINT)"] == 31  # sem o Cadastro, viraria 32
+
+
+def test_sessao_nova_entra_com_o_id_e_o_nome_do_cadastro(client, data_dir):
+    with open(data_dir / "sessions.csv", "a", encoding="utf-8") as f:
+        f.write("40,portugal,sprint,GP de Portugal,Portimão\n")
+
+    write_session(data_dir, "portugal_sprint_20261020.csv", [(1, "Bryan", "Scuderia Ferrari HP", 1)])
+
+    assert races_by_name(client, "2026")["GP de Portugal (SPRINT)"] == {
+        "race_id": 40,
+        "race_name": "GP de Portugal (SPRINT)",
+        "race_date": "2026-10-20",
+        "race_location": "Portimão",
+        "is_sprint": True,
+    }
 
 
 def test_estreantes_entram_com_o_id_do_cadastro(client, data_dir):

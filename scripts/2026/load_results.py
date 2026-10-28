@@ -34,7 +34,7 @@ def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
     Lê os arquivos CSV de 2026 e retorna o DataFrame com os resultados consolidados.
 
     Gera um DataFrame com as seguintes colunas (mesmo schema de 2025):
-    - race_id: ID canônico da corrida/sprint
+    - race_id: ID da corrida/sprint no Cadastro de Sessões
     - driver_id: ID único do piloto
     - team_id: ID único da equipe
     - driver_start_position: Posição de largada no grid
@@ -45,15 +45,17 @@ def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
     Args:
         base_path (str): Caminho para a pasta dos dados de 2026.
                          Padrão: './files/2026'
-        base_path_2025 (str): Caminho para a pasta dos dados de 2025 (para mapeamento histórico).
-                              Padrão: './files/2025'
+        base_path_2025 (str): Não é mais usado (os IDs vêm do Cadastro). Fica na
+                              assinatura porque os chamadores passam os mesmos
+                              caminhos a todos os loaders de 2026.
 
     Returns:
         pd.DataFrame: DataFrame com os resultados das sessões de 2026.
 
     Raises:
-        DataError: Se a pasta de 2026 não existir, algum CSV de sessão for inválido
-                   ou algum resultado tiver o piloto vazio ou como 'Pessoa'.
+        DataError: Se a pasta de 2026 não existir, algum CSV de sessão for inválido,
+                   algum resultado tiver o piloto vazio ou como 'Pessoa' ou algum
+                   piloto, equipe ou Sessão não estiver no Cadastro.
     """
     require_dir(base_path)
 
@@ -63,18 +65,13 @@ def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
     df_drivers = load_drivers(base_path=base_path, base_path_2025=base_path_2025)
     df_teams = load_teams(base_path=base_path, base_path_2025=base_path_2025)
 
-    race_id_map = {
-        (str(name).lower(), bool(sprint)): rid
-        for rid, name, sprint in zip(df_races["race_id"], df_races["race_name"], df_races["is_sprint"])
-    }
     driver_id_map = dict(zip(df_drivers["driver_name"], df_drivers["driver_id"]))
     team_id_map = dict(zip(df_teams["team_name"], df_teams["team_id"]))
 
     # 2. Extrair resultados de cada sessão, em ordem cronológica
+    #    (load_races devolve uma linha por sessão, na mesma ordem de list_sessions)
     all_results = []
-    for session in list_sessions(base_path):
-        race_id = race_id_map[(session["race_name"].lower(), session["is_sprint"])]
-
+    for session, race_id in zip(list_sessions(base_path), df_races["race_id"]):
         df_session = read_session_results(session["file_path"])
         if df_session is None:
             continue

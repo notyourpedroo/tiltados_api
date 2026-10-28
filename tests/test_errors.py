@@ -13,6 +13,7 @@ CALENDAR = "2026/calendar.csv"
 PREDICTION = "/load/2026/prediction/drivers"
 DRIVERS_REGISTRY = "drivers.csv"
 TEAMS_REGISTRY = "teams.csv"
+SESSIONS_REGISTRY = "sessions.csv"
 
 
 def _replace(relative_path, old, new):
@@ -21,6 +22,10 @@ def _replace(relative_path, old, new):
 
 def _remove(relative_path):
     return lambda data_dir: os.remove(data_dir / relative_path)
+
+
+def _rename(relative_path, new_relative_path):
+    return lambda data_dir: os.rename(data_dir / relative_path, data_dir / new_relative_path)
 
 
 # (descrição, alteração nos dados, endpoint, trechos esperados na mensagem)
@@ -100,6 +105,45 @@ SCENARIOS = [
         [f"{DRIVERS_REGISTRY}, linha 12: coluna 'driver_name' vazia."],
     ),
     (
+        "Sessao fora do Cadastro no nome do arquivo",
+        _rename(JAPAO, "2026/japao_sprint_20260323.csv"),
+        "/load/2026/races",
+        ["2026/japao_sprint_20260323.csv: local 'japao' com tipo 'sprint' no nome do arquivo "
+         "(esperado uma Sessão do Cadastro)."],
+    ),
+    (
+        "race_id repetido no Cadastro de Sessoes",
+        _replace(SESSIONS_REGISTRY, "31,canada,sprint", "30,canada,sprint"),
+        "/load/2026/races",
+        ["sessions.csv, linha 32: coluna 'race_id' com valor '30' "
+         "(esperado um valor único no Cadastro, já usado na linha 31)."],
+    ),
+    (
+        "local e tipo repetidos no Cadastro de Sessoes",
+        _replace(SESSIONS_REGISTRY, "33,holanda,sprint", "33,canada,sprint"),
+        "/load/2026/races",
+        ["sessions.csv, linha 34: colunas 'local' e 'tipo' com valor 'canada' e 'sprint' "
+         "(esperado um valor único no Cadastro, já usado na linha 32)."],
+    ),
+    (
+        "coluna ausente no Cadastro de Sessoes",
+        _replace(SESSIONS_REGISTRY, "race_id,local,tipo,race_name,", "race_id,local,tipo,nome,"),
+        "/load/2026/races",
+        [SESSIONS_REGISTRY, "'race_name'"],
+    ),
+    (
+        "race_id nao inteiro no Cadastro de Sessoes",
+        _replace(SESSIONS_REGISTRY, "34,singapura,sprint", "trinta,singapura,sprint"),
+        "/load/2026/results",
+        [f"{SESSIONS_REGISTRY}, linha 35", "'race_id'", "'trinta'"],
+    ),
+    (
+        "tipo invalido no Cadastro de Sessoes",
+        _replace(SESSIONS_REGISTRY, "31,canada,sprint", "31,canada,corrida"),
+        "/load/2026/standings/drivers",
+        [f"{SESSIONS_REGISTRY}, linha 32: coluna 'tipo' com valor 'corrida' (esperado 'race' ou 'sprint')."],
+    ),
+    (
         "scores.csv ausente",
         _remove("2026/scores.csv"),
         "/load/2026/standings/drivers",
@@ -136,10 +180,10 @@ SCENARIOS = [
         [f"{CALENDAR}, linha 25", "'tipo'", "'corrida'"],
     ),
     (
-        "local fora do mapeamento no calendario",
+        "Sessao fora do Cadastro no calendario",
         _replace(CALENDAR, "mexico,race,", "mexcio,race,"),
         PREDICTION,
-        [f"{CALENDAR}, linha 25", "'mexcio'", "LOCATION_MAP"],
+        [f"{CALENDAR}, linha 25: local 'mexcio' com tipo 'race' (esperado uma Sessão do Cadastro)."],
     ),
     (
         "data invalida no calendario",
@@ -210,6 +254,15 @@ def test_erro_no_cadastro_nao_afeta_endpoints_que_nao_dependem_dele(client, data
     assert client.get("/load/2026/races").status_code == 200
     assert client.get("/load/2026/teams").status_code == 200
     assert client.get("/load/2025/drivers").status_code == 200
+    assert client.get("/load/2025/standings/drivers").status_code == 200
+
+
+def test_erro_no_cadastro_de_sessoes_nao_afeta_endpoints_que_nao_dependem_dele(client, data_dir):
+    replace_in_file(data_dir / SESSIONS_REGISTRY, "31,canada,sprint", "30,canada,sprint")
+    assert client.get("/load/2026/races").status_code == 500
+    assert client.get("/load/2026/drivers").status_code == 200
+    assert client.get("/load/2026/teams").status_code == 200
+    assert client.get("/load/2025/races").status_code == 200
     assert client.get("/load/2025/standings/drivers").status_code == 200
 
 

@@ -33,7 +33,7 @@ def load_punishments(
     Campos padrão retornados:
     - season_year: Ano da temporada (2026)
     - driver_id: ID único do piloto penalizado
-    - race_id: ID canônico da corrida onde ocorreu a infração
+    - race_id: ID, no Cadastro de Sessões, da corrida onde ocorreu a infração
     - deduction_points: Quantidade de pontos deduzidos na Superlicença
     - penalty_reason: Descrição/motivo da penalidade
 

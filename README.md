@@ -108,7 +108,7 @@ Os testes rodam sobre uma cópia de `files/` em uma pasta temporária, então po
 
 Toda rota da API entra sozinha nos testes de resposta. Uma rota nova também precisa aparecer na tabela de "Endpoints Disponíveis" e na lista `HEALTH_URLS` de `deploy/publicar.sh`, senão os testes falham.
 
-Um dos testes exige que todo local de arquivo em `files/2026/` esteja no `LOCATION_MAP`. Ao adicionar um GP novo, inclua o local no mapeamento.
+Um dos testes exige que toda Sessão de `files/2026/` (nos nomes dos arquivos e no Calendário) esteja no Cadastro de Sessões (`files/sessions.csv`). Ao adicionar um GP novo, ou uma Sprint num GP que não tinha, cadastre a Sessão antes.
 
 ## Atualização Automática dos Dados
 
@@ -132,9 +132,23 @@ Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor invá
 
    Exemplos: `singapura_race_20261005.csv`, `silverstone_sprint_20260728.csv`.
 
-   - `{local}` deve estar em minúsculas e sem acentos. Se não estiver no mapeamento `LOCATION_MAP` (em `scripts/2026/common.py`), o nome do GP é derivado do arquivo (ex.: `GP de Imola`) e a corrida recebe um `race_id` novo em vez de reaproveitar o de 2025. Para ter o nome oficial, adicione a entrada no mapeamento, com o nome do GP igual ao de `files/2025/races.csv`.
+   - `{local}` deve estar em minúsculas e sem acentos, igual à coluna `local` do Cadastro de Sessões (ex.: `spa` para o GP da Bélgica).
    - `race` ou `sprint` define o tipo da sessão.
-   - `YYYYMMDD` é a data da sessão.
+   - `YYYYMMDD` é a data da sessão. A data só define a ordem das sessões: salvar um CSV com data anterior às outras não muda o `race_id` de nenhuma.
+
+   O `local` e o tipo do nome do arquivo precisam estar no Cadastro de Sessões (`files/sessions.csv`, colunas `race_id,local,tipo,race_name,race_location`). É de lá que saem o `race_id`, o nome do GP e a cidade que a API devolve, os mesmos em todas as temporadas a partir de 2026. A coluna `tipo` é `race` ou `sprint`, e `race_name` é o nome do GP sem sufixo: na Sprint, a API acrescenta ` (SPRINT)` (ex.: `GP da China (SPRINT)`). Para cadastrar uma Sessão nova (um GP inédito ou uma Sprint num GP que não tinha), acrescente uma linha com o próximo `race_id` livre, por exemplo:
+
+   ```
+   35,portugal,race,GP de Portugal,Portimão
+   ```
+
+   Não troque o `race_id` de uma Sessão já cadastrada, porque os resultados e as punições guardados apontam para ele. Um local e tipo fora do Cadastro faz os endpoints de 2026 que dependem das Sessões retornarem erro indicando o arquivo, por exemplo:
+
+   ```json
+   {"detail": "2026/japao_sprint_20260323.csv: local 'japao' com tipo 'sprint' no nome do arquivo (esperado uma Sessão do Cadastro)."}
+   ```
+
+   Um `race_id` repetido, o mesmo local e tipo em duas linhas, uma coluna faltando, um `race_id` que não é inteiro ou um tipo diferente de `race` e `sprint` também viram erro com o arquivo e a linha.
 
 2. O CSV deve ter o cabeçalho e as colunas do exportado do site de resultados:
 
@@ -152,9 +166,9 @@ Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor invá
 
    Um ID ou nome repetido no Cadastro, uma coluna faltando ou um ID que não é inteiro também viram erro com o arquivo e a linha. A temporada 2025 não usa o Cadastro: continua lendo `files/2025/`, com os mesmos IDs.
 
-4. Pronto. Corridas, resultados, pilotos e equipes de 2026 são derivados da pasta `files/2026/` e do Cadastro. Se o export vier com o nome `Pessoa` (placeholder do site) ou vazio no lugar do piloto, troque pelo nome real antes de salvar. Caso contrário, os endpoints de 2026 que dependem de pilotos retornam erro indicando o arquivo e a linha a corrigir.
+4. Pronto. Corridas, resultados, pilotos e equipes de 2026 são derivados da pasta `files/2026/` e do Cadastro (pilotos, equipes e Sessões). Se o export vier com o nome `Pessoa` (placeholder do site) ou vazio no lugar do piloto, troque pelo nome real antes de salvar. Caso contrário, os endpoints de 2026 que dependem de pilotos retornam erro indicando o arquivo e a linha a corrigir.
 
-   A sessão precisa estar no Calendário (`files/2026/calendar.csv`, colunas `local,tipo,data`), com o mesmo `{local}` e o mesmo tipo do nome do arquivo. No Calendário, todo `local` precisa estar no `LOCATION_MAP`, para um nome digitado errado não virar uma Sessão pendente para sempre. A ligação é só por local e tipo: a data do arquivo de resultado prevalece sobre a data prevista do Calendário. Uma sessão fora do Calendário faz as rotas `/load/2026/prediction/drivers` e `/load/2026/prediction/teams` retornarem erro indicando o arquivo e a linha a adicionar.
+   A sessão precisa estar no Calendário (`files/2026/calendar.csv`, colunas `local,tipo,data`), com o mesmo `{local}` e o mesmo tipo do nome do arquivo. No Calendário, todo `local` e tipo precisa estar no Cadastro de Sessões, para um nome digitado errado não virar uma Sessão pendente para sempre; senão, as rotas de Chance de título retornam erro com o arquivo e a linha. A ligação é só por local e tipo: a data do arquivo de resultado prevalece sobre a data prevista do Calendário. Uma sessão fora do Calendário faz as rotas `/load/2026/prediction/drivers` e `/load/2026/prediction/teams` retornarem erro indicando o arquivo e a linha a adicionar.
 
    Se a corrida tiver punição de Superlicença, registre também em `files/super_license/punishments.csv` (colunas `season_year,driver_id,race_id,deduction_points,penalty_reason`).
 
@@ -492,11 +506,15 @@ tiltados_api/
 |-- files/
 |   |-- 2025/               # CSVs consolidados da temporada 2025
 |   |-- 2026/               # CSVs de cada sessão da temporada 2026 (+ scores.csv e calendar.csv)
-|   `-- super_license/      # Arquivo de punições da superlicença
+|   |-- super_license/      # Arquivo de punições da superlicença
+|   |-- drivers.csv         # Cadastro de pilotos (2026 em diante)
+|   |-- teams.csv           # Cadastro de equipes (2026 em diante)
+|   `-- sessions.csv        # Cadastro de Sessões: race_id, nome do GP e cidade (2026 em diante)
 |-- scripts/
 |   |-- 2025/               # Módulos de extração e cálculo de 2025
 |   |-- 2026/               # Módulos de extração e cálculo de 2026
-|   |   `-- common.py       # LOCATION_MAP, padrão de nome e leitura dos CSVs de sessão
+|   |   |-- common.py       # Padrão de nome e leitura dos CSVs de sessão
+|   |   `-- load_registry.py # Leitura e validação do Cadastro (pilotos, equipes e Sessões)
 |   `-- errors.py           # DataError e validação dos CSVs (arquivo, coluna, valor)
 |-- tests/                  # Testes automatizados (pytest)
 |-- main.py                 # Aplicação FastAPI, cache e definição de rotas

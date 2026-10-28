@@ -6,6 +6,7 @@ testes podem alterar ou quebrar CSVs à vontade sem tocar nos dados reais.
 """
 
 import os
+import re
 import shutil
 
 import pytest
@@ -41,7 +42,12 @@ def replace_in_file(path, old, new):
 
 
 def write_calendar(data_dir, rows):
-    """Reescreve o Calendário de 2026 com as Sessões (local, tipo, data) dadas."""
+    """
+    Reescreve o Calendário de 2026 com as Sessões (local, tipo, data) dadas.
+    As Sessões fora do Cadastro da cópia são cadastradas antes.
+    """
+    for local, session_type, _ in rows:
+        register_session(data_dir, local, session_type)
     lines = [f"{local},{session_type},{date}\n" for local, session_type, date in rows]
     with open(data_dir / "2026" / "calendar.csv", "w", encoding="utf-8") as f:
         f.write("local,tipo,data\n" + "".join(lines))
@@ -70,11 +76,30 @@ def register(data_dir, file_name, names):
                 next_id += 1
 
 
+def register_session(data_dir, local, session_type):
+    """
+    Acrescenta ao Cadastro de Sessões (sessions.csv) a Sessão (local, tipo), se ainda não estiver nele,
+    com o próximo race_id livre. O nome do GP e a cidade são os da outra Sessão do mesmo local, se houver.
+    """
+    path = data_dir / "sessions.csv"
+    with open(path, encoding="utf-8") as f:
+        rows = [line.rstrip("\n").split(",") for line in f.readlines()[1:] if line.strip()]
+    if any(row[1] == local and row[2] == session_type for row in rows):
+        return
+    same_local = next((row for row in rows if row[1] == local), None)
+    race_name, location = (same_local[3], same_local[4]) if same_local else (f"GP de {local}", local)
+    next_id = max(int(row[0]) for row in rows) + 1
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(f"{next_id},{local},{session_type},{race_name},{location}\n")
+
+
 def write_session(data_dir, file_name, rows):
     """
     Cria um CSV de sessão de 2026 com o cabeçalho do export e as linhas dadas.
-    Pilotos e equipes fora do Cadastro da cópia são cadastrados antes.
+    Pilotos, equipes e a Sessão (local e tipo do nome do arquivo) fora do Cadastro da cópia são cadastrados antes.
     """
+    local, session_type = re.match(r"(\w+)_(race|sprint)_\d{8}\.csv$", file_name).groups()
+    register_session(data_dir, local, session_type)
     register(data_dir, "drivers.csv", [driver for _, driver, _, _ in rows])
     register(data_dir, "teams.csv", [team for _, _, team, _ in rows])
     lines = [
