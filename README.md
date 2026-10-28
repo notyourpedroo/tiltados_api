@@ -185,6 +185,7 @@ De 2026 em diante, toda temporada usa o formato por Sessão e o mesmo código (a
 1. Crie `files/2027/` com o Calendário (`calendar.csv`, colunas `local,tipo,data`, todas as Sessões previstas) e a pontuação (`scores.csv`, colunas `score_id,position,points,is_sprint`; copie a de 2026 se a pontuação não mudar).
 2. Cadastre em `files/sessions.csv` toda Sessão do Calendário que ainda não está no Cadastro (um GP inédito ou uma Sprint num GP que não tinha), com o próximo `race_id` livre. Pilotos e equipes estreantes entram em `files/drivers.csv` e `files/teams.csv` antes do primeiro resultado. Os IDs do Cadastro valem para todas as temporadas: não crie um ID novo para quem já está cadastrado.
 3. Suba a `API_VERSION` em `main.py`: o primeiro número é a quantidade de temporadas, então abrir 2027 leva a versão para `v3.{YY}.{MMDD}`. Acrescente as rotas de 2027 à lista `HEALTH_URLS` de `deploy/publicar.sh` (todas as `/load/{season}/...`, inclusive Superlicença, punições e Chance de título).
+   Os testes que conferem os dados reais também mudam: `SEASONS` e a lista `seasons` esperada em `tests/test_endpoints.py` ganham 2027, e o teste que confere o Calendário de 2026 contra o Cadastro (`tests/test_data_rules.py`) ganha o de 2027. Até a primeira Sessão disputada, as rotas de 2027 respondem lista vazia, então o teste que exige lista não vazia (`test_endpoint_responde_lista_nao_vazia`) só deve incluir 2027 depois dela.
 4. Faça o commit e o push. A temporada aparece em `seasons` na rota `/` e responde em `/load/2027/drivers`, `teams`, `races`, `results`, `standings/drivers` e `standings/teams`, e também em `/load/2027/punishments`, `super-license`, `prediction/drivers` e `prediction/teams`.
 
 Até a primeira Sessão disputada, essas rotas respondem lista vazia (`[]`), sem erro. Depois, cada Sessão entra como em "Adicionando uma Nova Corrida", na pasta do ano. As punições de 2027 vão para o mesmo `files/super_license/punishments.csv`, com `season_year` 2027: cada piloto começa a temporada com 12 pontos de Superlicença, e as punições de 2026 não contam em 2027.
@@ -261,7 +262,7 @@ Superlicença, punições e Chance de título (as quatro últimas rotas da tabel
 - `Eliminado` sempre tem 0% e `Campeao` sempre 100%. `expected_points` é a média dos pontos finais nas simulações.
 - A semente da simulação vem dos dados: enquanto os CSVs não mudam, a resposta é sempre a mesma.
 - `probability_reason` traz o Motivo da Chance de título: uma frase em PT-BR montada por templates a partir dos mesmos dados, então os mesmos CSVs dão sempre o mesmo Motivo. O rival de referência é o líder da classificação; o próprio líder se compara com o 2º. O template segue esta ordem:
-  - Sem Sessões pendentes: a posição final e a distância para o campeão. Se a posição foi decidida no desempate, diz com quem empatou em pontos e se ganhou ou perdeu por vitórias ou por pódios.
+  - Sem Sessões pendentes: a posição final e a distância para o campeão. Se a posição foi decidida no desempate, diz com quem empatou em pontos e se ganhou ou perdeu, na ordem do desempate: por vitórias, por pódios, por ter mais (ou menos) 2ºs, 3ºs... lugares em Corridas ("Empatou em pontos, vitórias e pódios com Bia e venceu no desempate por ter mais 2ºs lugares em Corridas.") ou por ter feito o seu melhor resultado em Corridas antes (ou depois). Sem Corrida para desempatar, só diz que empatou.
   - `Eliminado`: os Pontos máximos (vencendo todas as Sessões pendentes; para equipes, fazendo 1º e 2º, ou só vencendo, com um único piloto) abaixo dos pontos do líder.
   - `Campeao` antes da última Sessão: nenhum rival alcança mais os seus pontos, com os Pontos máximos do mais próximo.
   - `Na disputa`, do caso mais específico para o mais geral:
@@ -400,7 +401,21 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
 ]
 ```
 
-Um piloto com o saldo em 0 ou menos aparece com `status` `Suspenso` (Suspensão a cumprir) ou `Suspensao cumprida`; nos dados atuais, nenhum piloto chegou a zerar a Superlicença.
+Um piloto com o saldo em 0 ou menos aparece com `status` `Suspenso` (Suspensão a cumprir) ou `Suspensao cumprida`; nos dados atuais, nenhum piloto chegou a zerar a Superlicença. Um exemplo hipotético: se o Gabriel perdesse mais 7 pontos na última Corrida disputada, a linha dele ficaria assim até a próxima Corrida disputada, quando o `status` passaria a `Suspensao cumprida` (o saldo continua em 0):
+
+```json
+{
+  "driver_id": 2,
+  "driver_name": "Gabriel",
+  "team_id": 7,
+  "team_name": "Visa Cash App Racing Bulls",
+  "initial_points": 12,
+  "deducted_points": 12,
+  "remaining_points": 0,
+  "punishments_count": 4,
+  "status": "Suspenso"
+}
+```
 
 ### 6. Punições da Superlicença (2026)
 `GET /load/2026/punishments`

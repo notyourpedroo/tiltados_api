@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Retornar o DataFrame das equipes de 2026.
+Retornar o DataFrame das equipes de uma temporada por Sessão.
 
 Este módulo extrai as equipes participantes a partir dos arquivos de resultados
-de 2026 e retorna um DataFrame com team_id e team_name, ambos vindos do Cadastro.
+da temporada e retorna um DataFrame com team_id e team_name, ambos vindos do Cadastro.
 """
 
 import os
@@ -12,7 +12,7 @@ import sys
 # Suporta tanto importação relativa de pacote quanto execução direta de script
 try:
     from .common import list_sessions, read_session_results
-    from .load_registry import load_registered_teams, require_registered
+    from .load_registry import load_registered_teams, registry_dir, require_registered
     from ..errors import require_dir
 except (ImportError, ValueError):
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -20,11 +20,11 @@ except (ImportError, ValueError):
         if path not in sys.path:
             sys.path.insert(0, path)
     from common import list_sessions, read_session_results
-    from load_registry import load_registered_teams, require_registered
+    from load_registry import load_registered_teams, registry_dir, require_registered
     from errors import require_dir
 
 
-def load_teams(base_path="./files/2026", registry_path=None):
+def load_teams(base_path="./files/2026"):
     """
     Lê os arquivos de resultados de uma temporada por Sessão (2026 em diante) e
     extrai as equipes participantes.
@@ -37,7 +37,6 @@ def load_teams(base_path="./files/2026", registry_path=None):
     Args:
         base_path (str): Caminho para a pasta da temporada (ex.: './files/2027').
                          Padrão: './files/2026'
-        registry_path (str): Pasta do Cadastro. Padrão: a pasta acima de `base_path`.
 
     Returns:
         pd.DataFrame: DataFrame com as equipes da temporada (team_id, team_name).
@@ -48,13 +47,11 @@ def load_teams(base_path="./files/2026", registry_path=None):
                    for inválido.
     """
     require_dir(base_path)
-    if registry_path is None:
-        registry_path = os.path.dirname(os.path.normpath(base_path))
 
-    df_registered = load_registered_teams(registry_path)
+    df_registered = load_registered_teams(registry_dir(base_path))
     registered_names = set(df_registered["team_name"])
 
-    # Equipes presentes nos arquivos de 2026, conferidas contra o Cadastro
+    # Equipes presentes nos arquivos da temporada, conferidas contra o Cadastro
     teams_found = set()
     for session in list_sessions(base_path):
         df_session = read_session_results(session["file_path"])

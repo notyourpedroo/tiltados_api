@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Retornar o Calendário de 2026: todas as Sessões previstas, disputadas ou pendentes.
+Retornar o Calendário de uma temporada por Sessão: todas as Sessões previstas, disputadas ou pendentes.
 
 O Calendário fica em calendar.csv (colunas local, tipo, data). Uma Sessão é disputada
 quando existe o CSV de resultado com o mesmo local e tipo; senão, é pendente, mesmo
@@ -16,7 +16,7 @@ import pandas as pd
 # Suporta tanto importação relativa de pacote quanto execução direta de script
 try:
     from .common import list_sessions
-    from .load_registry import SESSION_TYPES, load_registered_sessions
+    from .load_registry import SESSION_TYPE_NAMES, SESSION_TYPES, load_registered_sessions, registry_dir
     from ..errors import DataError, display_path, read_csv, require_columns, require_dir
 except (ImportError, ValueError):
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -24,7 +24,7 @@ except (ImportError, ValueError):
         if path not in sys.path:
             sys.path.insert(0, path)
     from common import list_sessions
-    from load_registry import SESSION_TYPES, load_registered_sessions
+    from load_registry import SESSION_TYPE_NAMES, SESSION_TYPES, load_registered_sessions, registry_dir
     from errors import DataError, display_path, read_csv, require_columns, require_dir
 
 
@@ -36,9 +36,9 @@ def _parse_date(value):
         return None
 
 
-def load_calendar(base_path="./files/2026", registry_path=None):
+def load_calendar(base_path="./files/2026"):
     """
-    Lê o calendar.csv de 2026 e cruza com as Sessões que já têm resultado.
+    Lê o calendar.csv da temporada e cruza com as Sessões que já têm resultado.
 
     Gera um DataFrame, em ordem cronológica (no mesmo dia, a sprint antes da corrida), com:
     - local: Local da Etapa, como no nome dos arquivos de sessão e no Cadastro de Sessões (ex: 'mexico')
@@ -47,9 +47,8 @@ def load_calendar(base_path="./files/2026", registry_path=None):
     - is_played: Indica se a Sessão já foi disputada (True/False)
 
     Args:
-        base_path (str): Caminho para a pasta dos dados de 2026.
+        base_path (str): Caminho para a pasta da temporada (ex.: './files/2027').
                          Padrão: './files/2026'
-        registry_path (str): Pasta do Cadastro. Padrão: a pasta acima de `base_path`.
 
     Returns:
         pd.DataFrame: DataFrame com as Sessões do Calendário.
@@ -60,9 +59,7 @@ def load_calendar(base_path="./files/2026", registry_path=None):
                    Sessões for inválido ou se algum CSV de resultado não estiver no Calendário.
     """
     require_dir(base_path)
-    if registry_path is None:
-        registry_path = os.path.dirname(os.path.normpath(base_path))
-    df_registered = load_registered_sessions(registry_path)
+    df_registered = load_registered_sessions(registry_dir(base_path))
     registered = set(zip(df_registered["local"], df_registered["is_sprint"].astype(bool)))
 
     calendar_file = os.path.join(base_path, "calendar.csv")
@@ -100,7 +97,7 @@ def load_calendar(base_path="./files/2026", registry_path=None):
             raise DataError(
                 f"{display_path(played['file_path'])}: Sessão não encontrada em "
                 f"{display_path(calendar_file)}. Adicione a linha '{key[0]},"
-                f"{'sprint' if key[1] else 'race'},{played['race_date']}'."
+                f"{SESSION_TYPE_NAMES[key[1]]},{played['race_date']}'."
             )
         sessions[key]["race_date"] = played["race_date"]
         sessions[key]["is_played"] = True

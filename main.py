@@ -119,29 +119,26 @@ def _cached_until_files_change(func):
     return wrapper
 
 
-# Recursos das rotas genéricas, por formato de temporada. Cada loader recebe a pasta da temporada.
+# Recursos de cada formato de temporada. Cada loader recebe a pasta e o ano da temporada.
+# A temporada consolidada (2025) só tem os recursos das rotas genéricas.
 _CONSOLIDATED_LOADERS = {
-    "drivers": lambda path: load_2025_drivers(base_path=path),
-    "teams": lambda path: load_2025_teams(base_path=path),
-    "races": lambda path: load_2025_races(base_path=path),
-    "results": lambda path: load_2025_results(base_path=path),
-    "driver_standings": lambda path: calculate_2025_standings(type="drivers", base_path=path),
-    "team_standings": lambda path: calculate_2025_standings(type="teams", base_path=path),
+    "drivers": lambda path, year: load_2025_drivers(base_path=path),
+    "teams": lambda path, year: load_2025_teams(base_path=path),
+    "races": lambda path, year: load_2025_races(base_path=path),
+    "results": lambda path, year: load_2025_results(base_path=path),
+    "driver_standings": lambda path, year: calculate_2025_standings(type="drivers", base_path=path),
+    "team_standings": lambda path, year: calculate_2025_standings(type="teams", base_path=path),
 }
 
+# As temporadas por Sessão também têm Superlicença, punições e Chance de título; as punições ficam
+# num arquivo só (files/super_license/), filtrado pelo ano.
 _SESSION_LOADERS = {
-    "drivers": lambda path: load_session_drivers(base_path=path),
-    "teams": lambda path: load_session_teams(base_path=path),
-    "races": lambda path: load_session_races(base_path=path),
-    "results": lambda path: load_session_results(base_path=path),
-    "driver_standings": lambda path: calculate_session_standings(type="drivers", base_path=path),
-    "team_standings": lambda path: calculate_session_standings(type="teams", base_path=path),
-}
-
-
-# Recursos que só existem nas temporadas por Sessão. Cada loader recebe a pasta e o ano da temporada;
-# as punições ficam num arquivo só (files/super_license/), filtrado pelo ano.
-_SESSION_ONLY_LOADERS = {
+    "drivers": lambda path, year: load_session_drivers(base_path=path),
+    "teams": lambda path, year: load_session_teams(base_path=path),
+    "races": lambda path, year: load_session_races(base_path=path),
+    "results": lambda path, year: load_session_results(base_path=path),
+    "driver_standings": lambda path, year: calculate_session_standings(type="drivers", base_path=path),
+    "team_standings": lambda path, year: calculate_session_standings(type="teams", base_path=path),
     "punishments": lambda path, year: load_session_punishments(
         base_path=_files_path_sl(), season_year=year, enriched=True, season_path=path,
     ),
@@ -155,13 +152,15 @@ _SESSION_ONLY_LOADERS = {
 }
 
 
+def _season_loaders(season: str):
+    """Os recursos do formato da temporada: consolidado (2025) ou por Sessão."""
+    return _CONSOLIDATED_LOADERS if season == CONSOLIDATED_SEASON else _SESSION_LOADERS
+
+
 @_cached_until_files_change
 def _get_season_data(season: str, resource: str):
-    """Um recurso de uma temporada, com os módulos do formato dela (consolidado ou por Sessão)."""
-    if resource in _SESSION_ONLY_LOADERS:
-        return _SESSION_ONLY_LOADERS[resource](_files_path(season), int(season))
-    loaders = _CONSOLIDATED_LOADERS if season == CONSOLIDATED_SEASON else _SESSION_LOADERS
-    return loaders[resource](_files_path(season))
+    """Um recurso de uma temporada, com os módulos do formato dela."""
+    return _season_loaders(season)[resource](_files_path(season), int(season))
 
 
 def _load_data(season: str, resource: str, part: str = None):
@@ -175,7 +174,7 @@ def _load_data(season: str, resource: str, part: str = None):
             status_code=404,
             detail=f"Temporada {season} não encontrada. Temporadas disponíveis: {', '.join(seasons)}.",
         )
-    if season == CONSOLIDATED_SEASON and resource in _SESSION_ONLY_LOADERS:
+    if resource not in _season_loaders(season):
         raise HTTPException(
             status_code=404,
             detail=(
@@ -228,14 +227,12 @@ SESSION_SEASON_DESCRIPTION = (
 )
 
 
-def _season_path():
-    """Parâmetro {season} das rotas genéricas, documentado no Swagger."""
-    return Path(..., description=SEASON_DESCRIPTION, examples=["2026"])
-
-
-def _session_season_path():
-    """Parâmetro {season} das rotas que só existem nas temporadas por Sessão, documentado no Swagger."""
-    return Path(..., description=SESSION_SEASON_DESCRIPTION, examples=["2026"])
+def _season_path(description=SEASON_DESCRIPTION):
+    """
+    Parâmetro {season} documentado no Swagger: das rotas genéricas, ou, com SESSION_SEASON_DESCRIPTION,
+    das rotas que só existem nas temporadas por Sessão.
+    """
+    return Path(..., description=description, examples=["2026"])
 
 
 @app.get("/")
@@ -286,24 +283,24 @@ def get_team_standings(season: str = _season_path()):
 
 
 @app.get("/load/{season}/punishments", summary="Punições da Superlicença")
-def get_punishments(season: str = _session_season_path()):
+def get_punishments(season: str = _season_path(SESSION_SEASON_DESCRIPTION)):
     """Retorna as punições da Superlicença registradas na temporada especificada."""
     return _load_data(season, "punishments")
 
 
 @app.get("/load/{season}/super-license", summary="Status da Superlicença")
-def get_super_license(season: str = _session_season_path()):
+def get_super_license(season: str = _season_path(SESSION_SEASON_DESCRIPTION)):
     """Retorna o status da Superlicença de cada piloto na temporada especificada."""
     return _load_data(season, "super_license")
 
 
 @app.get("/load/{season}/prediction/drivers", summary="Chance de título dos pilotos")
-def get_driver_prediction(season: str = _session_season_path()):
+def get_driver_prediction(season: str = _season_path(SESSION_SEASON_DESCRIPTION)):
     """Retorna a situação no título e a Chance de título de cada piloto, simulando as Sessões pendentes da temporada."""
     return _load_data(season, "prediction", "drivers")
 
 
 @app.get("/load/{season}/prediction/teams", summary="Chance de título dos construtores")
-def get_team_prediction(season: str = _session_season_path()):
+def get_team_prediction(season: str = _season_path(SESSION_SEASON_DESCRIPTION)):
     """Retorna a situação no título e a Chance de título de cada equipe, simulando as Sessões pendentes da temporada."""
     return _load_data(season, "prediction", "teams")

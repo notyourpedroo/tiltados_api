@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Retornar o DataFrame dos resultados de 2026.
+Retornar o DataFrame dos resultados de uma temporada por Sessão.
 
-Este módulo processa os arquivos de resultados de corridas e sprints de 2026,
+Este módulo processa os arquivos de resultados de corridas e sprints da temporada,
 vinculando race_id, driver_id e team_id com os dados padronizados da liga.
 """
 

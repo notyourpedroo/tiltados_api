@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Retornar o DataFrame das corridas de 2026.
+Retornar o DataFrame das Sessões de uma temporada por Sessão.
 
-Este módulo extrai as corridas e sprints de 2026 a partir dos arquivos de
+Este módulo extrai as corridas e sprints da temporada a partir dos arquivos de
 resultados, com o race_id, o nome do GP e a cidade vindos do Cadastro de
 Sessões (files/sessions.csv), o mesmo em todas as temporadas por Sessão.
 """
@@ -14,7 +14,7 @@ import pandas as pd
 # Suporta tanto importação relativa de pacote quanto execução direta de script
 try:
     from .common import list_sessions
-    from .load_registry import load_registered_sessions
+    from .load_registry import SESSION_TYPE_NAMES, load_registered_sessions, registry_dir
     from ..errors import DataError, display_path, require_dir
 except (ImportError, ValueError):
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -22,14 +22,14 @@ except (ImportError, ValueError):
         if path not in sys.path:
             sys.path.insert(0, path)
     from common import list_sessions
-    from load_registry import load_registered_sessions
+    from load_registry import SESSION_TYPE_NAMES, load_registered_sessions, registry_dir
     from errors import DataError, display_path, require_dir
 
 
 RACE_COLUMNS = ["race_id", "race_name", "race_date", "race_location", "is_sprint"]
 
 
-def load_races(base_path="./files/2026", registry_path=None):
+def load_races(base_path="./files/2026"):
     """
     Lê os arquivos de resultados de uma temporada por Sessão (2026 em diante) e gera
     o DataFrame de corridas, com o race_id, o nome e a cidade de cada Sessão vindos do Cadastro.
@@ -45,7 +45,6 @@ def load_races(base_path="./files/2026", registry_path=None):
     Args:
         base_path (str): Caminho para a pasta da temporada (ex.: './files/2027').
                          Padrão: './files/2026'
-        registry_path (str): Pasta do Cadastro. Padrão: a pasta acima de `base_path`.
 
     Returns:
         pd.DataFrame: DataFrame com as corridas da temporada.
@@ -56,10 +55,8 @@ def load_races(base_path="./files/2026", registry_path=None):
                    estiverem no Cadastro.
     """
     require_dir(base_path)
-    if registry_path is None:
-        registry_path = os.path.dirname(os.path.normpath(base_path))
 
-    df_registered = load_registered_sessions(registry_path)
+    df_registered = load_registered_sessions(registry_dir(base_path))
     registered = {
         (local, bool(sprint)): (int(rid), name, location)
         for rid, local, sprint, name, location in zip(
@@ -75,7 +72,7 @@ def load_races(base_path="./files/2026", registry_path=None):
         if key not in registered:
             raise DataError(
                 f"{display_path(session['file_path'])}: local '{session['local']}' com tipo "
-                f"'{'sprint' if session['is_sprint'] else 'race'}' no nome do arquivo "
+                f"'{SESSION_TYPE_NAMES[session['is_sprint']]}' no nome do arquivo "
                 "(esperado uma Sessão do Cadastro)."
             )
         race_id, gp_name, location = registered[key]

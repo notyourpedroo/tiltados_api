@@ -26,8 +26,14 @@ DRIVERS_FILE = "drivers.csv"
 TEAMS_FILE = "teams.csv"
 SESSIONS_FILE = "sessions.csv"
 
-# Valores da coluna 'tipo' do Cadastro de Sessões (e do Calendário) -> is_sprint
+# Valores da coluna 'tipo' do Cadastro de Sessões (e do Calendário) -> is_sprint, e o caminho inverso
 SESSION_TYPES = {"race": False, "sprint": True}
+SESSION_TYPE_NAMES = {is_sprint: name for name, is_sprint in SESSION_TYPES.items()}
+
+
+def registry_dir(base_path):
+    """Pasta do Cadastro: a pasta de dados, logo acima da pasta da temporada (`base_path`)."""
+    return os.path.dirname(os.path.normpath(base_path))
 
 
 def _describe_columns(columns, values):

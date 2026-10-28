@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Retornar o DataFrame dos pilotos de 2026.
+Retornar o DataFrame dos pilotos de uma temporada por Sessão.
 
 Este módulo extrai os pilotos participantes a partir dos arquivos de resultados
-de 2026, com o ID e o nome vindos do Cadastro e a equipe da Sessão mais recente.
+da temporada, com o ID e o nome vindos do Cadastro e a equipe da Sessão mais recente.
 """
 
 import os
@@ -13,7 +13,7 @@ import pandas as pd
 # Suporta tanto importação relativa de pacote quanto execução direta de script
 try:
     from .common import list_sessions, read_session_results
-    from .load_registry import load_registered_drivers, require_registered
+    from .load_registry import load_registered_drivers, registry_dir, require_registered
     from .load_teams import load_teams
     from ..errors import DataError, display_path, require_dir
 except (ImportError, ValueError):
@@ -22,7 +22,7 @@ except (ImportError, ValueError):
         if path not in sys.path:
             sys.path.insert(0, path)
     from common import list_sessions, read_session_results
-    from load_registry import load_registered_drivers, require_registered
+    from load_registry import load_registered_drivers, registry_dir, require_registered
     from load_teams import load_teams
     from errors import DataError, display_path, require_dir
 
@@ -35,7 +35,7 @@ def _is_placeholder_driver(value):
     return not name or name.lower() == "pessoa"
 
 
-def load_drivers(base_path="./files/2026", registry_path=None):
+def load_drivers(base_path="./files/2026"):
     """
     Lê os arquivos de resultados de uma temporada por Sessão (2026 em diante) e
     extrai os pilotos participantes.
@@ -49,7 +49,6 @@ def load_drivers(base_path="./files/2026", registry_path=None):
     Args:
         base_path (str): Caminho para a pasta da temporada (ex.: './files/2027').
                          Padrão: './files/2026'
-        registry_path (str): Pasta do Cadastro. Padrão: a pasta acima de `base_path`.
 
     Returns:
         pd.DataFrame: DataFrame com os pilotos da temporada (driver_id, team_id, driver_name).
@@ -60,13 +59,11 @@ def load_drivers(base_path="./files/2026", registry_path=None):
                    piloto ou equipe não estiver no Cadastro ou o Cadastro for inválido.
     """
     require_dir(base_path)
-    if registry_path is None:
-        registry_path = os.path.dirname(os.path.normpath(base_path))
 
-    df_registered = load_registered_drivers(registry_path)
+    df_registered = load_registered_drivers(registry_dir(base_path))
     driver_id_map = dict(zip(df_registered["driver_name"], df_registered["driver_id"]))
 
-    # 1. Extrair pilotos de 2026 em ordem cronológica,
+    # 1. Extrair pilotos da temporada em ordem cronológica,
     #    para que a equipe de cada piloto seja a da sessão mais recente
     driver_team_map = {}
 
@@ -88,7 +85,7 @@ def load_drivers(base_path="./files/2026", registry_path=None):
             driver_team_map[str(row["Piloto"]).strip()] = str(row["Equipe"]).strip()
 
     # 2. IDs das equipes vêm de load_teams, que também confere o Cadastro de equipes
-    df_teams = load_teams(base_path=base_path, registry_path=registry_path)
+    df_teams = load_teams(base_path=base_path)
     team_id_map = dict(zip(df_teams["team_name"], df_teams["team_id"]))
 
     # 3. Construir o DataFrame de pilotos

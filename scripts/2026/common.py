@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Funções e constantes compartilhadas pelos loaders de 2026.
+Funções e constantes compartilhadas pelos loaders das temporadas por Sessão (2026 em diante).
 
 Centraliza a identificação dos arquivos de sessão (local, data e tipo) e a
 leitura do bloco de resultados dos CSVs exportados. O nome do GP, a cidade e o
@@ -48,7 +48,7 @@ def _parse_session_file(file_path):
 
 def list_sessions(base_path="./files/2026"):
     """
-    Lista as sessões de 2026 (arquivos que seguem o padrão de nome), em ordem cronológica.
+    Lista as sessões da temporada (arquivos que seguem o padrão de nome), em ordem cronológica.
     No mesmo dia, o sprint vem antes da corrida.
 
     Cada sessão é um dict com: file_path, local, race_date, is_sprint.

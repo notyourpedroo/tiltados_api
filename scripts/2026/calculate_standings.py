@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Calcular a tabela de classificação (standings) de 2026.
+Calcular a tabela de classificação (standings) de uma temporada por Sessão (2026 em diante).
 
-Este módulo cruza os resultados das corridas de 2026 com o sistema de pontuação (scores.csv)
+Este módulo cruza os resultados das Sessões da temporada com o sistema de pontuação (scores.csv)
 para calcular a pontuação total, vitórias, pódios e posições de pilotos e construtores.
 
 Desempate, para pilotos e equipes: pontos; vitórias em Corridas; pódios (Corridas e Sprints);
@@ -35,7 +35,7 @@ except (ImportError, ValueError):
 
 
 def _calculate_base_points(base_path="./files/2026"):
-    """Função interna para cruzar resultados de 2026 com a tabela de pontuação (scores.csv)."""
+    """Função interna para cruzar resultados da temporada com a tabela de pontuação (scores.csv)."""
     scores_file = os.path.join(base_path, "scores.csv")
     df_scores = read_csv(scores_file)
     require_columns(df_scores, ["position", "points", "is_sprint"], scores_file)
@@ -45,9 +45,9 @@ def _calculate_base_points(base_path="./files/2026"):
     df_results = load_results(base_path=base_path)
     df_races = load_races(base_path=base_path)
 
-    # Cruzar com corridas para obter is_sprint e a ordem cronológica da Sessão (load_races já vem em ordem)
-    df_races = df_races[["race_id", "is_sprint"]].assign(session_order=range(len(df_races)))
-    merged = df_results.merge(df_races, on="race_id", how="left")
+    # Cruzar com corridas para obter is_sprint e a ordem cronológica da Sessão
+    merged = df_results.merge(df_races[["race_id", "is_sprint"]], on="race_id", how="left")
+    merged = merged.merge(session_orders(df_races), on="race_id", how="left")
 
     # Cruzar com pontuações
     merged = merged.merge(
@@ -61,12 +61,21 @@ def _calculate_base_points(base_path="./files/2026"):
     return merged
 
 
+def session_orders(df_races):
+    """
+    Ordem cronológica de cada Sessão disputada (colunas race_id e session_order), para o
+    desempate. `df_races` vem de load_races, que já devolve as Sessões em ordem.
+    Não lança DataError.
+    """
+    return df_races[["race_id"]].assign(session_order=range(len(df_races)))
+
+
 class RaceFinishes:
     """
     Posições de cada piloto ou equipe em Corridas, para o desempate da classificação.
 
-    Os arrays podem ter eixos à frente (`shape`), um por simulação na Chance de título;
-    na classificação, não têm nenhum:
+    Na classificação, os arrays têm um item por competidor; na Chance de título, `repeat`
+    põe à frente um eixo de simulações:
     - finishes[..., i, k]: quantas vezes o competidor i terminou em (k + 2)º em Corridas;
     - best[..., i]: o melhor resultado dele em Corridas (infinito sem Corridas);
     - first_best[..., i]: a ordem da primeira Sessão em que ele conseguiu esse melhor
@@ -77,17 +86,17 @@ class RaceFinishes:
     as Corridas pendentes simuladas. Não lança DataError.
     """
 
-    def __init__(self, n_competitors, worst_position, shape=()):
-        self.finishes = np.zeros((*shape, n_competitors, max(worst_position - 1, 0)), dtype=int)
-        self.best = np.full((*shape, n_competitors), np.inf)
-        self.first_best = np.full((*shape, n_competitors), np.inf)
+    def __init__(self, n_competitors, worst_position):
+        self.finishes = np.zeros((n_competitors, max(worst_position - 1, 0)), dtype=int)
+        self.best = np.full(n_competitors, np.inf)
+        self.first_best = np.full(n_competitors, np.inf)
 
     def repeat(self, n_simulations):
         """Cópia com um eixo de simulações à frente, cada uma começando destas posições."""
-        copy = RaceFinishes(0, 1)
-        for name in ("finishes", "best", "first_best"):
-            value = getattr(self, name)
-            setattr(copy, name, np.repeat(value[np.newaxis], n_simulations, axis=0))
+        copy = RaceFinishes.__new__(RaceFinishes)
+        copy.finishes = np.repeat(self.finishes[np.newaxis], n_simulations, axis=0)
+        copy.best = np.repeat(self.best[np.newaxis], n_simulations, axis=0)
+        copy.first_best = np.repeat(self.first_best[np.newaxis], n_simulations, axis=0)
         return copy
 
     def add_race(self, positions, owner, order):
@@ -180,7 +189,7 @@ def _sort_standings(stats, merged, by):
 
 def calculate_driver_standings(base_path="./files/2026"):
     """
-    Calcula a classificação completa do campeonato de pilotos de 2026.
+    Calcula a classificação completa do campeonato de pilotos de uma temporada por Sessão.
 
     Colunas do DataFrame retornado:
     - position: Posição no campeonato (1 a N)
@@ -193,6 +202,11 @@ def calculate_driver_standings(base_path="./files/2026"):
     - sprint_wins: Vitórias em corridas Sprint
     - podiums: Total de pódios (1º a 3º lugar)
     - races: Total de sessões disputadas
+
+    Raises:
+        DataError: Se o scores.csv for inválido ou nos casos de load_results, load_races,
+                   load_drivers e load_teams (CSV de sessão inválido, piloto, equipe ou
+                   Sessão fora do Cadastro, Cadastro inválido).
     """
     merged = _calculate_base_points(base_path=base_path)
 
@@ -222,7 +236,7 @@ def calculate_driver_standings(base_path="./files/2026"):
 
 def calculate_team_standings(base_path="./files/2026"):
     """
-    Calcula a classificação completa do campeonato de construtores de 2026.
+    Calcula a classificação completa do campeonato de construtores de uma temporada por Sessão.
 
     Colunas do DataFrame retornado:
     - position: Posição no campeonato (1 a N)
@@ -231,6 +245,9 @@ def calculate_team_standings(base_path="./files/2026"):
     - points: Total de pontos somados
     - wins: Vitórias em Grandes Prêmios
     - podiums: Total de pódios conquistados pelos pilotos da equipe
+
+    Raises:
+        DataError: Nos mesmos casos de calculate_driver_standings.
     """
     merged = _calculate_base_points(base_path=base_path)
 
@@ -262,6 +279,9 @@ def calculate_standings(type="drivers", base_path="./files/2026"):
 
     Returns:
         pd.DataFrame: Tabela de classificação solicitada.
+
+    Raises:
+        DataError: Nos mesmos casos de calculate_driver_standings.
     """
     if type in ["teams", "constructors"]:
         return calculate_team_standings(base_path=base_path)

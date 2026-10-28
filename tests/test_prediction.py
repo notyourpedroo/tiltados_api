@@ -200,6 +200,40 @@ def test_motivo_do_campeao_decidido_no_desempate_por_podios(client, data_dir):
     )
 
 
+def test_motivo_de_posicao_final_decidida_pelos_segundos_lugares_em_corridas(client, data_dir):
+    # Corrida: Caio 1º (25), Ana 2º (18), Bia 3º (15); Sprint da China: Bia 6ª (3). Ana e Bia somam 18,
+    # sem vitórias e com 1 pódio cada; Ana tem um 2º em Corridas e Bia nenhum
+    season(data_dir, [["Caio", "Ana", "Bia"]], pending=0)
+    write_session(data_dir, "china_sprint_20260302.csv", [(6, "Bia", TEAM, 6)])
+    write_calendar(data_dir, calendar_rows(data_dir) + [("china", "sprint", "2026-03-02")])
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Ana"]["probability_reason"] == (
+        "Terminou em 2º, 7 pontos atrás de Caio. Empatou em pontos, vitórias e pódios com Bia"
+        " e venceu no desempate por ter mais 2ºs lugares em Corridas."
+    )
+    assert rows["Bia"]["probability_reason"] == (
+        "Terminou em 3º, 7 pontos atrás de Caio. Empatou em pontos, vitórias e pódios com Ana"
+        " e perdeu no desempate por ter menos 2ºs lugares em Corridas."
+    )
+
+
+def test_motivo_de_posicao_final_decidida_por_quem_fez_antes_o_melhor_resultado(client, data_dir):
+    # Caio vence as 2 Corridas (50). Ana 2º e 3º, Bia 3º e 2º: 33 cada, com 2 pódios, um 2º e um 3º;
+    # Ana fez o seu 2º na 1ª Corrida, Bia só na 2ª
+    season(data_dir, [["Caio", "Ana", "Bia"], ["Caio", "Bia", "Ana"]], pending=0)
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Ana"]["probability_reason"] == (
+        "Terminou em 2º, 17 pontos atrás de Caio. Empatou em pontos, vitórias, pódios e posições em Corridas"
+        " com Bia e venceu no desempate por ter feito o seu melhor resultado em Corridas antes."
+    )
+    assert rows["Bia"]["probability_reason"] == (
+        "Terminou em 3º, 17 pontos atrás de Caio. Empatou em pontos, vitórias, pódios e posições em Corridas"
+        " com Ana e perdeu no desempate por ter feito o seu melhor resultado em Corridas depois."
+    )
+
+
 def test_empate_exato_nos_pontos_maximos_mantem_na_disputa(client, data_dir):
     # Ana 25 + 18 = 43; Bia 18 + 0 = 18, que com mais uma Corrida chega a 43
     season(data_dir, [["Ana", "Bia", "Caio"], ["Caio", "Ana", "Dani", "Edu", "Fabi", "Gil", "Bia"]], pending=1)
@@ -801,6 +835,38 @@ def test_titulo_empatado_na_contagem_vai_para_quem_conseguiu_primeiro_o_melhor_r
     rows = by_name(client.get(DRIVERS).json())
 
     assert rows["Mike"]["expected_points"] == rows["Gabriel"]["expected_points"] == 33
+    assert rows["Mike"]["championship_probability"] == 100
+    assert rows["Gabriel"]["championship_probability"] == 0
+
+
+def test_corrida_simulada_entra_na_contagem_de_posicoes_do_desempate(client, data_dir):
+    # 12 Sprints só com Mike e Gabriel, alternando 1º (8) e 2º (7): 90 pontos e 12 pódios cada.
+    # Austrália: José, Bryan, Paulo, Matheus, Pedro e Yohan do 1º ao 6º, Gabriel 7º, Mike 8º; Japão: o mesmo,
+    # com Mike 7º e Gabriel 8º. Nas Corridas disputadas, os dois têm um 7º e um 8º, e Gabriel fez o 7º antes.
+    # Gabriel zera a Superlicença no Japão e fica fora da única Corrida pendente; nela, os 6 sorteiam a sua
+    # única posição (1º ao 6º) e Mike, 7º ou 8º, termina em 7º sem pontos. Fim: 90 a 90 (José, o 1º dos
+    # outros, chega a 75), e Mike vence só pelo 7º da Corrida simulada (dois 7ºs contra um). Sem ele, seria o
+    # Gabriel, por ter feito o 7º antes e pela ordem do ID (2 < 9).
+    reset_2026_season(data_dir)
+    sprint_locals = ["china", "bahrein", "arabia_saudita", "miami", "emilia_romanha", "canada",
+                     "monaco", "espanha", "silverstone", "austria", "spa", "hungria"]
+    for day, local in enumerate(sprint_locals, start=1):
+        first, second = ("Mike", "Gabriel") if day % 2 else ("Gabriel", "Mike")
+        write_session(data_dir, f"{local}_sprint_202601{day:02d}.csv",
+                      [(1, first, TEAM, 1), (2, second, TEAM, 2)])
+    others = ["José", "Bryan", "Paulo", "Matheus", "Pedro", "Yohan"]
+    for file_name, last_two in (("australia_race_20260302.csv", ["Gabriel", "Mike"]),
+                                ("japao_race_20260323.csv", ["Mike", "Gabriel"])):
+        write_session(data_dir, file_name,
+                      [(pos, driver, TEAM, pos) for pos, driver in enumerate(others + last_two, start=1)])
+    write_calendar(data_dir, [(local, "sprint", f"2026-01-{day:02d}") for day, local in enumerate(sprint_locals, 1)]
+                   + [("australia", "race", "2026-03-02"), ("japao", "race", "2026-03-23"),
+                      ("mexico", "race", "2026-10-26")])
+    punish(client, data_dir, [("Gabriel", "GP do Japão", 12)])
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Mike"]["expected_points"] == rows["Gabriel"]["expected_points"] == 90
+    assert rows["José"]["expected_points"] == 75
     assert rows["Mike"]["championship_probability"] == 100
     assert rows["Gabriel"]["championship_probability"] == 0
 
