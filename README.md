@@ -172,7 +172,7 @@ Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor invá
 
    Se a corrida tiver punição de Superlicença, registre também em `files/super_license/punishments.csv` (colunas `season_year,driver_id,race_id,deduction_points,penalty_reason`). O arquivo é um só para todas as temporadas: `season_year` diz a temporada da punição, e ela só conta na Superlicença (e na Suspensão) dessa temporada.
 
-5. Faça o commit e o push na `main`. O GitHub Actions roda os testes e publica a corrida nova no servidor em cerca de 1 a 2 minutos. Os CSVs de produção vêm sempre do Git: não edite arquivos direto no servidor, porque cada publicação substitui a pasta `files/`.
+5. Faça o commit num branch e abra um PR para a `main` (a `main` é protegida e recusa push direto; o fluxo está em `docs/agents/workflow.md`). O GitHub Actions roda os testes no PR, e o merge publica a corrida nova no servidor em cerca de 1 a 2 minutos. Os CSVs de produção vêm sempre do Git: não edite arquivos direto no servidor, porque cada publicação substitui a pasta `files/`.
 
 A pontuação de cada posição vem de `files/2026/scores.csv` (colunas `position`, `points`, `is_sprint`).
 
@@ -186,7 +186,7 @@ De 2026 em diante, toda temporada usa o formato por Sessão e o mesmo código (a
 2. Cadastre em `files/sessions.csv` toda Sessão do Calendário que ainda não está no Cadastro (um GP inédito ou uma Sprint num GP que não tinha), com o próximo `race_id` livre. Pilotos e equipes estreantes entram em `files/drivers.csv` e `files/teams.csv` antes do primeiro resultado. Os IDs do Cadastro valem para todas as temporadas: não crie um ID novo para quem já está cadastrado.
 3. Suba a `API_VERSION` em `main.py`: o primeiro número é a quantidade de temporadas, então abrir 2027 leva a versão para `v3.{YY}.{MMDD}`. Acrescente as rotas de 2027 à lista `HEALTH_URLS` de `deploy/publicar.sh` (todas as `/load/{season}/...`, inclusive Superlicença, punições e Chance de título).
    Os testes não mudam: eles descobrem as temporadas pelas pastas de `files/`, como a API, e só exigem lista não vazia das temporadas que já têm Sessão disputada. O teste do health check falha até as rotas de 2027 entrarem no `HEALTH_URLS`.
-4. Faça o commit e o push. A temporada aparece em `seasons` na rota `/` e responde em `/load/2027/drivers`, `teams`, `races`, `results`, `standings/drivers` e `standings/teams`, e também em `/load/2027/punishments`, `super-license`, `prediction/drivers` e `prediction/teams`.
+4. Faça o commit num branch, abra um PR para a `main` e faça o merge com o CI verde, como no passo 5 de "Adicionando uma Nova Corrida". A temporada aparece em `seasons` na rota `/` e responde em `/load/2027/drivers`, `teams`, `races`, `results`, `standings/drivers` e `standings/teams`, e também em `/load/2027/punishments`, `super-license`, `prediction/drivers` e `prediction/teams`.
 
 Até a primeira Sessão disputada, essas rotas respondem lista vazia (`[]`), sem erro. Depois, cada Sessão entra como em "Adicionando uma Nova Corrida", na pasta do ano. As punições de 2027 vão para o mesmo `files/super_license/punishments.csv`, com `season_year` 2027: cada piloto começa a temporada com 12 pontos de Superlicença, e as punições de 2026 não contam em 2027.
 
@@ -547,6 +547,7 @@ tiltados_api/
 |-- .github/workflows/      # CI/CD: testes e deploy automático (deploy.yml)
 |-- deploy/                 # Scripts do servidor (preparação única e publicação)
 |-- docs/adr/               # Decisões de arquitetura (ADRs)
+|-- docs/agents/            # Instruções para agentes: fluxo de trabalho (workflow.md), issues e domínio
 |-- files/
 |   |-- 2025/               # CSVs consolidados da temporada 2025
 |   |-- 2026/               # CSVs de cada sessão da temporada 2026 (+ scores.csv e calendar.csv); 2027 em diante, igual
