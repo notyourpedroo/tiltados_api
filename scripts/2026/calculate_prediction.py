@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Calcular a Chance de título de 2026.
+Calcular a Chance de título de uma temporada por Sessão.
 
 Este módulo combina a classificação atual com as Sessões pendentes do Calendário:
 - Situação matemática: Pontos máximos e status (Campeao, Na disputa, Eliminado).
 - Simulação (Monte Carlo): cada Sessão pendente é sorteada a partir das posições
-  que cada piloto já fez em 2026, e a Chance de título é a porcentagem de
+  que cada piloto já fez na temporada, e a Chance de título é a porcentagem de
   simulações em que o piloto termina como Campeão, pelo mesmo desempate da
   classificação (calculate_standings.standings_order).
 - Motivo da Chance de título: a frase que explica a situação de cada piloto ou
@@ -44,6 +44,15 @@ except (ImportError, ValueError):
     from errors import read_csv, require_columns, to_int_column
 
 N_SIMULATIONS = 10_000
+
+DRIVER_COLUMNS = [
+    "position", "driver_id", "driver_name", "team_id", "team_name", "points",
+    "max_points", "status", "championship_probability", "expected_points", "probability_reason"
+]
+TEAM_COLUMNS = [
+    "position", "team_id", "team_name", "points", "max_points", "status",
+    "championship_probability", "expected_points", "probability_reason"
+]
 
 
 def _load_points_tables(base_path, size):
@@ -289,7 +298,7 @@ def _full_chance_reason(names, points, n_pending, n_simulations, is_team):
 def _floor_zero_reason(i, names, points, max_points, n_pending, is_team, floor):
     """
     Motivo de quem está Na disputa com Chance de título exibida como 0,0 quando o líder, repetindo
-    o pior resultado de 2026, ainda fica à frente dos seus Pontos máximos.
+    o pior resultado da temporada, ainda fica à frente dos seus Pontos máximos.
     """
     gain, worst = floor
     lead = points[0] - points[i]
@@ -311,7 +320,7 @@ def _floor_zero_reason(i, names, points, max_points, n_pending, is_team, floor):
 def _floor_full_reason(names, points, max_points, n_pending, is_team, floor):
     """
     Motivo do líder Na disputa com Chance de título exibida como 100,0 quando, repetindo o pior
-    resultado de 2026, ainda fica à frente dos Pontos máximos de todo rival Na disputa (o texto cita o 2º).
+    resultado da temporada, ainda fica à frente dos Pontos máximos de todo rival Na disputa (o texto cita o 2º).
     """
     gain, worst = floor
     lead = _count(points[0] - points[1], "ponto", "pontos")
@@ -437,7 +446,7 @@ SESSION_TYPES = {False: "Corridas", True: "Sprints"}
 
 def _worst_results(season, j):
     """
-    Pior resultado do piloto j em 2026 nos tipos de Sessão que a simulação usa para as Sessões pendentes.
+    Pior resultado do piloto j na temporada nos tipos de Sessão que a simulação usa para as Sessões pendentes.
 
     Cada tipo de Sessão pendente usa as posições do piloto no mesmo tipo ou, sem nenhuma, as do
     outro tipo (como a simulação). Devolve o ganho mínimo, a soma dos pontos dessa pior posição
@@ -462,8 +471,8 @@ def _has_full_presence(season, j):
 def _driver_floor(season):
     """
     Argumento do pior resultado do líder de pilotos: (ganho mínimo, "nunca terminou abaixo do 6º em
-    Corridas de 2026"; "venceu todas as Corridas de 2026" quando o pior resultado é a vitória),
-    ou None se ele não tem 100% de presença.
+    Corridas de 2026"; "venceu todas as Corridas de 2026" quando o pior resultado é a vitória, com o
+    ano da temporada), ou None se ele não tem 100% de presença.
     """
     if not len(season["standings"]) or not _has_full_presence(season, 0):
         return None
@@ -473,14 +482,14 @@ def _driver_floor(season):
     parts = ([f"venceu todas as {' e '.join(won)}"] if won else []) + (
         [f"nunca terminou abaixo {' nem '.join(below)}"] if below else []
     )
-    return gain, f"{' e '.join(parts)} de 2026"
+    return gain, f"{' e '.join(parts)} de {season['year']}"
 
 
 def _team_floor(season, team_id):
     """
     Argumento do pior resultado da equipe líder: (soma do ganho mínimo de cada piloto atual,
-    "em Corridas de 2026 (Matheus 6º, Erick 9º)"), ou None se ela não tem piloto atual ou se
-    algum deles não tem 100% de presença. Os pilotos seguem a ordem da classificação.
+    "em Corridas de 2026 (Matheus 6º, Erick 9º)", com o ano da temporada), ou None se ela não tem
+    piloto atual ou se algum deles não tem 100% de presença. Os pilotos seguem a ordem da classificação.
     """
     standings = season["standings"]
     drivers = np.flatnonzero((standings["team_id"] == team_id).to_numpy())
@@ -492,12 +501,12 @@ def _team_floor(season, team_id):
     if len(worsts[0]) == 1 and all(worst.keys() == worsts[0].keys() for worst in worsts):
         (source,) = worsts[0]
         listed = ", ".join(f"{name} {worst[source]}º" for name, worst in zip(names, worsts))
-        return sum(gains), f"em {SESSION_TYPES[source]} de 2026 ({listed})"
+        return sum(gains), f"em {SESSION_TYPES[source]} de {season['year']} ({listed})"
     listed = ", ".join(
         f"{name} " + " e ".join(f"{position}º em {SESSION_TYPES[source]}" for source, position in worst.items())
         for name, worst in zip(names, worsts)
     )
-    return sum(gains), f"em 2026 ({listed})"
+    return sum(gains), f"em {season['year']} ({listed})"
 
 
 def _displayed_probability(status, probability):
@@ -519,13 +528,13 @@ def _finish(df, probability, expected_points, sort_key):
     return df
 
 
-def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
+def _simulate_season(base_path, base_path_sl, season_year, n_simulations):
     """
     Simula as Sessões pendentes para os pilotos da classificação atual.
 
-    Retorna um dict com a classificação de pilotos (`standings`), os tipos das Sessões
-    pendentes (`pending`), as tabelas de pontos (`tables`), por piloto (na ordem da classificação)
-    as posições que ele fez em cada tipo de Sessão em 2026 (`positions[is_sprint][j]`), as contagens
+    Retorna um dict com o ano da temporada (`year`), a classificação de pilotos (`standings`), os tipos
+    das Sessões pendentes (`pending`), as tabelas de pontos (`tables`), por piloto (na ordem da classificação)
+    as posições que ele fez em cada tipo de Sessão na temporada (`positions[is_sprint][j]`), as contagens
     que formam a presença (`presence_counts[j]` = (disputadas, da temporada, "Corridas" ou "Sessões"))
     e a Suspensão pendente (`suspended`), e, por simulação e piloto, `sim_points`, `sim_wins` e
     `sim_podiums`. Para o desempate, traz também os resultados das Corridas disputadas com a ordem
@@ -533,14 +542,14 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
     da 1ª Sessão pendente) e as posições de cada Corrida pendente simulada (`sim_races`).
     """
     calendar = load_calendar(base_path=base_path)
-    standings = calculate_driver_standings(base_path=base_path, base_path_2025=base_path_2025)
-    df_results = load_results(base_path=base_path, base_path_2025=base_path_2025)
-    df_races = load_races(base_path=base_path, base_path_2025=base_path_2025)
+    standings = calculate_driver_standings(base_path=base_path)
+    df_results = load_results(base_path=base_path)
+    df_races = load_races(base_path=base_path)
 
     pending = calendar.loc[~calendar["is_played"], "is_sprint"].tolist()
     tables = _load_points_tables(base_path, size=len(standings))
 
-    # Posições de cada piloto em Corridas e em Sprints de 2026. Cada tipo de Sessão pendente
+    # Posições de cada piloto em Corridas e em Sprints da temporada. Cada tipo de Sessão pendente
     # sorteia das posições do mesmo tipo; quem não tem nenhuma usa as do outro tipo.
     results = df_results.merge(df_races[["race_id", "is_sprint"]], on="race_id")
     positions = {
@@ -570,9 +579,7 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
     rng = np.random.default_rng(zlib.crc32(seed_data))
 
     # Suspensão a cumprir: o mesmo cálculo da rota da Superlicença
-    super_license = calculate_super_license(
-        base_path_sl=base_path_sl, base_path_2026=base_path, base_path_2025=base_path_2025,
-    )
+    super_license = calculate_super_license(base_path_sl=base_path_sl, base_path=base_path, season_year=season_year)
     suspended_ids = super_license.loc[super_license["status"] == SUSPENDED, "driver_id"]
     suspended = standings["driver_id"].isin(suspended_ids).to_numpy()
 
@@ -584,6 +591,7 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
     session_order = df_races[["race_id"]].assign(session_order=range(len(df_races)))
     race_results = results.loc[~results["is_sprint"]].merge(session_order, on="race_id")
     return {
+        "year": season_year,
         "standings": standings,
         "pending": pending,
         "tables": tables,
@@ -636,12 +644,7 @@ def _driver_prediction(season):
         leader_floor=_driver_floor(season),
     )
     df = _finish(df, probability, expected_points, sort_key="position")
-
-    cols = [
-        "position", "driver_id", "driver_name", "team_id", "team_name", "points",
-        "max_points", "status", "championship_probability", "expected_points", "probability_reason"
-    ]
-    return df[cols]
+    return df[DRIVER_COLUMNS]
 
 
 def _team_prediction(season, team_standings):
@@ -702,35 +705,40 @@ def _team_prediction(season, team_standings):
         leader_floor=_team_floor(season, df["team_id"].iloc[0]) if len(df) else None,
     )
     df = _finish(df, probability, expected_points, sort_key="position")
-
-    cols = ["position", "team_id", "team_name", "points", "max_points", "status",
-            "championship_probability", "expected_points", "probability_reason"]
-    return df[cols]
+    return df[TEAM_COLUMNS]
 
 
 def calculate_prediction(
     base_path="./files/2026",
-    base_path_2025="./files/2025",
     base_path_sl="./files/super_license",
+    season_year=2026,
     n_simulations=N_SIMULATIONS,
 ):
     """
-    Função principal da Chance de título de 2026.
+    Função principal da Chance de título de uma temporada por Sessão.
 
     Simula as Sessões pendentes uma única vez e usa as mesmas simulações
     para o campeonato de pilotos e o de construtores.
 
     Args:
-        base_path (str): Caminho base dos arquivos de 2026.
-        base_path_2025 (str): Caminho base dos arquivos de 2025.
+        base_path (str): Caminho para a pasta da temporada (ex.: './files/2027').
+                         Padrão: './files/2026'
         base_path_sl (str): Caminho da pasta de punições da Superlicença.
+        season_year (int): Ano da temporada: filtra as punições (Suspensão) e é citado no Motivo.
         n_simulations (int): Quantidade de simulações.
 
     Returns:
-        dict: {'drivers': pd.DataFrame, 'teams': pd.DataFrame} com a Chance de título de pilotos e equipes.
+        dict: {'drivers': pd.DataFrame, 'teams': pd.DataFrame} com a Chance de título de pilotos e equipes
+        (vazios se a temporada ainda não tem Sessão disputada).
+
+    Raises:
+        DataError: Se os dados da temporada, o Calendário, a pontuação ou o arquivo de punições
+                   forem inválidos.
     """
-    season = _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations)
-    team_standings = calculate_team_standings(base_path=base_path, base_path_2025=base_path_2025)
+    season = _simulate_season(base_path, base_path_sl, season_year, n_simulations)
+    if season["standings"].empty:  # temporada com Calendário e sem Sessão disputada
+        return {"drivers": pd.DataFrame(columns=DRIVER_COLUMNS), "teams": pd.DataFrame(columns=TEAM_COLUMNS)}
+    team_standings = calculate_team_standings(base_path=base_path)
     return {
         "drivers": _driver_prediction(season),
         "teams": _team_prediction(season, team_standings),

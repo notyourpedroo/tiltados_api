@@ -29,7 +29,7 @@ except (ImportError, ValueError):
 RACE_COLUMNS = ["race_id", "race_name", "race_date", "race_location", "is_sprint"]
 
 
-def load_races(base_path="./files/2026", base_path_2025="./files/2025", registry_path=None):
+def load_races(base_path="./files/2026", registry_path=None):
     """
     Lê os arquivos de resultados de uma temporada por Sessão (2026 em diante) e gera
     o DataFrame de corridas, com o race_id, o nome e a cidade de cada Sessão vindos do Cadastro.
@@ -45,9 +45,6 @@ def load_races(base_path="./files/2026", base_path_2025="./files/2025", registry
     Args:
         base_path (str): Caminho para a pasta da temporada (ex.: './files/2027').
                          Padrão: './files/2026'
-        base_path_2025 (str): Não é mais usado (os IDs vêm do Cadastro). Fica na
-                              assinatura porque os chamadores passam os mesmos
-                              caminhos a todos os loaders de 2026.
         registry_path (str): Pasta do Cadastro. Padrão: a pasta acima de `base_path`.
 
     Returns:

@@ -24,7 +24,7 @@ except (ImportError, ValueError):
     from errors import require_dir
 
 
-def load_teams(base_path="./files/2026", base_path_2025="./files/2025", registry_path=None):
+def load_teams(base_path="./files/2026", registry_path=None):
     """
     Lê os arquivos de resultados de uma temporada por Sessão (2026 em diante) e
     extrai as equipes participantes.
@@ -37,9 +37,6 @@ def load_teams(base_path="./files/2026", base_path_2025="./files/2025", registry
     Args:
         base_path (str): Caminho para a pasta da temporada (ex.: './files/2027').
                          Padrão: './files/2026'
-        base_path_2025 (str): Não é mais usado (os IDs vêm do Cadastro). Fica na
-                              assinatura porque os chamadores passam os mesmos
-                              caminhos a todos os loaders de 2026.
         registry_path (str): Pasta do Cadastro. Padrão: a pasta acima de `base_path`.
 
     Returns:

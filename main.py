@@ -44,11 +44,9 @@ load_session_teams = importlib.import_module("scripts.2026.load_teams").load_tea
 load_session_races = importlib.import_module("scripts.2026.load_races").load_races
 load_session_results = importlib.import_module("scripts.2026.load_results").load_results
 calculate_session_standings = importlib.import_module("scripts.2026.calculate_standings").calculate_standings
-
-# Superlicença, punições e Chance de título, ainda só para 2026
-load_2026_punishments = importlib.import_module("scripts.2026.load_punishments").load_punishments
-calculate_2026_super_license = importlib.import_module("scripts.2026.calculate_super_license").calculate_super_license
-calculate_2026_prediction = importlib.import_module("scripts.2026.calculate_prediction").calculate_prediction
+load_session_punishments = importlib.import_module("scripts.2026.load_punishments").load_punishments
+calculate_session_super_license = importlib.import_module("scripts.2026.calculate_super_license").calculate_super_license
+calculate_session_prediction = importlib.import_module("scripts.2026.calculate_prediction").calculate_prediction
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -63,11 +61,6 @@ CONSOLIDATED_SEASON = "2025"
 def _files_path(season) -> str:
     """Retorna o caminho absoluto para files/{season}."""
     return os.path.join(BASE_DIR, "files", str(season))
-
-
-def _files_path_2025() -> str:
-    """Caminho absoluto para files/2025."""
-    return os.path.join(BASE_DIR, "files", "2025")
 
 
 def _files_path_sl() -> str:
@@ -146,52 +139,52 @@ _SESSION_LOADERS = {
 }
 
 
+# Recursos que só existem nas temporadas por Sessão. Cada loader recebe a pasta e o ano da temporada;
+# as punições ficam num arquivo só (files/super_license/), filtrado pelo ano.
+_SESSION_ONLY_LOADERS = {
+    "punishments": lambda path, year: load_session_punishments(
+        base_path=_files_path_sl(), season_year=year, enriched=True, season_path=path,
+    ),
+    "super_license": lambda path, year: calculate_session_super_license(
+        base_path_sl=_files_path_sl(), base_path=path, season_year=year,
+    ),
+    # Chance de título de pilotos e construtores, calculada com as mesmas simulações
+    "prediction": lambda path, year: calculate_session_prediction(
+        base_path=path, base_path_sl=_files_path_sl(), season_year=year,
+    ),
+}
+
+
 @_cached_until_files_change
 def _get_season_data(season: str, resource: str):
     """Um recurso de uma temporada, com os módulos do formato dela (consolidado ou por Sessão)."""
+    if resource in _SESSION_ONLY_LOADERS:
+        return _SESSION_ONLY_LOADERS[resource](_files_path(season), int(season))
     loaders = _CONSOLIDATED_LOADERS if season == CONSOLIDATED_SEASON else _SESSION_LOADERS
     return loaders[resource](_files_path(season))
 
 
-@_cached_until_files_change
-def _get_2026_punishments():
-    return load_2026_punishments(
-        base_path=_files_path_sl(),
-        season_year=2026,
-        enriched=True,
-        base_path_2026=_files_path(2026),
-        base_path_2025=_files_path_2025(),
-    )
-
-
-@_cached_until_files_change
-def _get_2026_super_license():
-    return calculate_2026_super_license(
-        base_path_sl=_files_path_sl(),
-        base_path_2026=_files_path(2026),
-        base_path_2025=_files_path_2025(),
-    )
-
-
-@_cached_until_files_change
-def _get_2026_prediction():
-    """Chance de título de pilotos e construtores, calculada com as mesmas simulações."""
-    return calculate_2026_prediction(
-        base_path=_files_path(2026),
-        base_path_2025=_files_path_2025(),
-        base_path_sl=_files_path_sl(),
-    )
-
-
-def _load_data(season: str, resource: str):
-    """Carrega e retorna os dados como lista de dicts; 404 se a temporada não existe."""
+def _load_data(season: str, resource: str, part: str = None):
+    """
+    Carrega e retorna os dados como lista de dicts (`part` escolhe a tabela, quando o recurso traz mais
+    de uma); 404 se a temporada não existe ou se o recurso só existe nas temporadas por Sessão.
+    """
     seasons = _season_years()
     if season not in seasons:
         raise HTTPException(
             status_code=404,
             detail=f"Temporada {season} não encontrada. Temporadas disponíveis: {', '.join(seasons)}.",
         )
-    return _df_to_records(_get_season_data(season, resource))
+    if season == CONSOLIDATED_SEASON and resource in _SESSION_ONLY_LOADERS:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Rota indisponível para {season}: Superlicença, punições e Chance de título só existem "
+                f"nas temporadas por Sessão (2026 em diante), e {season} está no formato consolidado."
+            ),
+        )
+    data = _get_season_data(season, resource)
+    return _df_to_records(data[part] if part else data)
 
 
 # ── Aplicação FastAPI ────────────────────────────────────────────────────────
@@ -229,9 +222,20 @@ SEASON_DESCRIPTION = (
 )
 
 
+SESSION_SEASON_DESCRIPTION = (
+    "Ano de uma temporada por Sessão (2026 em diante). As temporadas disponíveis estão em `seasons`, "
+    "na rota `/`; 2025 (formato consolidado) e outro valor respondem 404."
+)
+
+
 def _season_path():
     """Parâmetro {season} das rotas genéricas, documentado no Swagger."""
     return Path(..., description=SEASON_DESCRIPTION, examples=["2026"])
+
+
+def _session_season_path():
+    """Parâmetro {season} das rotas que só existem nas temporadas por Sessão, documentado no Swagger."""
+    return Path(..., description=SESSION_SEASON_DESCRIPTION, examples=["2026"])
 
 
 @app.get("/")
@@ -281,25 +285,25 @@ def get_team_standings(season: str = _season_path()):
     return _load_data(season, "team_standings")
 
 
-@app.get("/load/2026/punishments", summary="Punições da Superlicença (2026)")
-def get_punishments():
-    """Retorna as punições da Superlicença registradas na temporada 2026."""
-    return _df_to_records(_get_2026_punishments())
+@app.get("/load/{season}/punishments", summary="Punições da Superlicença")
+def get_punishments(season: str = _session_season_path()):
+    """Retorna as punições da Superlicença registradas na temporada especificada."""
+    return _load_data(season, "punishments")
 
 
-@app.get("/load/2026/super-license", summary="Status da Superlicença (2026)")
-def get_super_license():
-    """Retorna o status da Superlicença de cada piloto na temporada 2026."""
-    return _df_to_records(_get_2026_super_license())
+@app.get("/load/{season}/super-license", summary="Status da Superlicença")
+def get_super_license(season: str = _session_season_path()):
+    """Retorna o status da Superlicença de cada piloto na temporada especificada."""
+    return _load_data(season, "super_license")
 
 
-@app.get("/load/2026/prediction/drivers", summary="Chance de título dos pilotos (2026)")
-def get_driver_prediction():
-    """Retorna a situação no título e a Chance de título de cada piloto, simulando as Sessões pendentes de 2026."""
-    return _df_to_records(_get_2026_prediction()["drivers"])
+@app.get("/load/{season}/prediction/drivers", summary="Chance de título dos pilotos")
+def get_driver_prediction(season: str = _session_season_path()):
+    """Retorna a situação no título e a Chance de título de cada piloto, simulando as Sessões pendentes da temporada."""
+    return _load_data(season, "prediction", "drivers")
 
 
-@app.get("/load/2026/prediction/teams", summary="Chance de título dos construtores (2026)")
-def get_team_prediction():
-    """Retorna a situação no título e a Chance de título de cada equipe, simulando as Sessões pendentes de 2026."""
-    return _df_to_records(_get_2026_prediction()["teams"])
+@app.get("/load/{season}/prediction/teams", summary="Chance de título dos construtores")
+def get_team_prediction(season: str = _session_season_path()):
+    """Retorna a situação no título e a Chance de título de cada equipe, simulando as Sessões pendentes da temporada."""
+    return _load_data(season, "prediction", "teams")

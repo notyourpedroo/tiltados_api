@@ -104,9 +104,9 @@ ruff check .
 pytest
 ```
 
-Os testes rodam sobre uma cópia de `files/` em uma pasta temporária, então podem alterar ou quebrar CSVs sem tocar nos dados reais. Eles cobrem os endpoints, a consistência dos dados (IDs, pontos, superlicença), a descoberta das temporadas pelas pastas (uma temporada montada na cópia, com e sem Sessão disputada), as regras de 2026 (IDs do Cadastro iguais aos de 2025, equipe atual do piloto, recarga do cache) e as mensagens de erro para CSVs inválidos.
+Os testes rodam sobre uma cópia de `files/` em uma pasta temporária, então podem alterar ou quebrar CSVs sem tocar nos dados reais. Eles cobrem os endpoints, a consistência dos dados (IDs, pontos, superlicença), a descoberta das temporadas pelas pastas (uma temporada montada na cópia, com e sem Sessão disputada, inclusive Superlicença, punições e Chance de título dela), as regras de 2026 (IDs do Cadastro iguais aos de 2025, equipe atual do piloto, recarga do cache) e as mensagens de erro para CSVs inválidos.
 
-Toda rota da API entra sozinha nos testes de resposta. Uma rota nova também precisa aparecer na tabela de "Endpoints Disponíveis" e na lista `HEALTH_URLS` de `deploy/publicar.sh`, senão os testes falham.
+Toda rota da API entra sozinha nos testes de resposta. Uma rota nova também precisa aparecer na tabela de "Endpoints Disponíveis" e na lista `HEALTH_URLS` de `deploy/publicar.sh`, senão os testes falham. Nos testes e no `HEALTH_URLS`, `{season}` vira cada temporada; as rotas que só existem nas temporadas por Sessão (Superlicença, punições e Chance de título, listadas em `SESSION_ONLY_ROUTES` de `tests/test_endpoints.py`) entram só com as temporadas por Sessão, porque em 2025 respondem `404`.
 
 Um dos testes exige que toda Sessão de `files/2026/` (nos nomes dos arquivos e no Calendário) esteja no Cadastro de Sessões (`files/sessions.csv`). Ao adicionar um GP novo, ou uma Sprint num GP que não tinha, cadastre a Sessão antes.
 
@@ -170,7 +170,7 @@ Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor invá
 
    A sessão precisa estar no Calendário (`files/2026/calendar.csv`, colunas `local,tipo,data`), com o mesmo `{local}` e o mesmo tipo do nome do arquivo. No Calendário, todo `local` e tipo precisa estar no Cadastro de Sessões, para um nome digitado errado não virar uma Sessão pendente para sempre; senão, as rotas de Chance de título retornam erro com o arquivo e a linha. A ligação é só por local e tipo: a data do arquivo de resultado prevalece sobre a data prevista do Calendário. Uma sessão fora do Calendário faz as rotas `/load/2026/prediction/drivers` e `/load/2026/prediction/teams` retornarem erro indicando o arquivo e a linha a adicionar.
 
-   Se a corrida tiver punição de Superlicença, registre também em `files/super_license/punishments.csv` (colunas `season_year,driver_id,race_id,deduction_points,penalty_reason`).
+   Se a corrida tiver punição de Superlicença, registre também em `files/super_license/punishments.csv` (colunas `season_year,driver_id,race_id,deduction_points,penalty_reason`). O arquivo é um só para todas as temporadas: `season_year` diz a temporada da punição, e ela só conta na Superlicença (e na Suspensão) dessa temporada.
 
 5. Faça o commit e o push na `main`. O GitHub Actions roda os testes e publica a corrida nova no servidor em cerca de 1 a 2 minutos. Os CSVs de produção vêm sempre do Git: não edite arquivos direto no servidor, porque cada publicação substitui a pasta `files/`.
 
@@ -184,10 +184,10 @@ De 2026 em diante, toda temporada usa o formato por Sessão e o mesmo código (a
 
 1. Crie `files/2027/` com o Calendário (`calendar.csv`, colunas `local,tipo,data`, todas as Sessões previstas) e a pontuação (`scores.csv`, colunas `score_id,position,points,is_sprint`; copie a de 2026 se a pontuação não mudar).
 2. Cadastre em `files/sessions.csv` toda Sessão do Calendário que ainda não está no Cadastro (um GP inédito ou uma Sprint num GP que não tinha), com o próximo `race_id` livre. Pilotos e equipes estreantes entram em `files/drivers.csv` e `files/teams.csv` antes do primeiro resultado. Os IDs do Cadastro valem para todas as temporadas: não crie um ID novo para quem já está cadastrado.
-3. Suba a `API_VERSION` em `main.py`: o primeiro número é a quantidade de temporadas, então abrir 2027 leva a versão para `v3.{YY}.{MMDD}`. Acrescente as rotas de 2027 à lista `HEALTH_URLS` de `deploy/publicar.sh`.
-4. Faça o commit e o push. A temporada aparece em `seasons` na rota `/` e responde em `/load/2027/drivers`, `teams`, `races`, `results`, `standings/drivers` e `standings/teams`.
+3. Suba a `API_VERSION` em `main.py`: o primeiro número é a quantidade de temporadas, então abrir 2027 leva a versão para `v3.{YY}.{MMDD}`. Acrescente as rotas de 2027 à lista `HEALTH_URLS` de `deploy/publicar.sh` (todas as `/load/{season}/...`, inclusive Superlicença, punições e Chance de título).
+4. Faça o commit e o push. A temporada aparece em `seasons` na rota `/` e responde em `/load/2027/drivers`, `teams`, `races`, `results`, `standings/drivers` e `standings/teams`, e também em `/load/2027/punishments`, `super-license`, `prediction/drivers` e `prediction/teams`.
 
-Até a primeira Sessão disputada, essas rotas respondem lista vazia (`[]`), sem erro. Depois, cada Sessão entra como em "Adicionando uma Nova Corrida", na pasta do ano. Superlicença, punições e Chance de título ainda só existem para 2026.
+Até a primeira Sessão disputada, essas rotas respondem lista vazia (`[]`), sem erro. Depois, cada Sessão entra como em "Adicionando uma Nova Corrida", na pasta do ano. As punições de 2027 vão para o mesmo `files/super_license/punishments.csv`, com `season_year` 2027: cada piloto começa a temporada com 12 pontos de Superlicença, e as punições de 2026 não contam em 2027.
 
 ## Endpoints Disponíveis
 
@@ -195,6 +195,12 @@ O parâmetro `{season}` aceita o ano de qualquer temporada servida pela API, lis
 
 ```json
 {"detail": "Temporada 2027 não encontrada. Temporadas disponíveis: 2025, 2026."}
+```
+
+Superlicença, punições e Chance de título (as quatro últimas rotas da tabela) só existem nas temporadas por Sessão, de 2026 em diante. Pedidas para 2025, que fica no formato consolidado, respondem `404`:
+
+```json
+{"detail": "Rota indisponível para 2025: Superlicença, punições e Chance de título só existem nas temporadas por Sessão (2026 em diante), e 2025 está no formato consolidado."}
 ```
 
 | Método | Endpoint | Descrição |
@@ -206,10 +212,10 @@ O parâmetro `{season}` aceita o ano de qualquer temporada servida pela API, lis
 | GET | `/load/{season}/results` | Resultados detalhados de todas as corridas |
 | GET | `/load/{season}/standings/drivers` | Tabela de classificação do campeonato de pilotos |
 | GET | `/load/{season}/standings/teams` | Tabela de classificação do campeonato de construtores |
-| GET | `/load/2026/punishments` | Relatório de punições da Superlicença (2026) |
-| GET | `/load/2026/super-license` | Status e saldo de pontos da Superlicença (2026) |
-| GET | `/load/2026/prediction/drivers` | Situação no título e Chance de título dos pilotos (2026) |
-| GET | `/load/2026/prediction/teams` | Situação no título e Chance de título dos construtores (2026) |
+| GET | `/load/{season}/punishments` | Relatório de punições da Superlicença da temporada (só temporadas por Sessão) |
+| GET | `/load/{season}/super-license` | Status e saldo de pontos da Superlicença (só temporadas por Sessão) |
+| GET | `/load/{season}/prediction/drivers` | Situação no título e Chance de título dos pilotos (só temporadas por Sessão) |
+| GET | `/load/{season}/prediction/teams` | Situação no título e Chance de título dos construtores (só temporadas por Sessão) |
 
 ## Regras de Negócio
 
@@ -219,9 +225,10 @@ O parâmetro `{season}` aceita o ano de qualquer temporada servida pela API, lis
 - Desempate (2025): pontos, depois vitórias em Corridas, depois pódios, e então a ordem do ID. A classificação de 2025 fica como foi publicada.
 - `races` conta sessões disputadas, ou seja, corridas e sprints somadas. `wins` conta apenas corridas (GP); `sprint_wins` conta apenas sprints.
 
-**Superlicença (2026)**
-- Cada piloto começa com 12 pontos.
-- Cada punição em `files/super_license/punishments.csv` deduz pontos (`deduction_points`).
+**Superlicença (temporadas por Sessão)**
+- Cada piloto começa cada temporada com 12 pontos.
+- Cada punição em `files/super_license/punishments.csv` deduz pontos (`deduction_points`) só na temporada do seu `season_year`: uma punição de 2026 não conta na Superlicença nem na Suspensão de 2027.
+- Cada punição precisa apontar para um piloto (`driver_id`) com Sessão disputada na temporada e para uma Sessão disputada dela (`race_id`); senão, as rotas da temporada que dependem das punições (Superlicença, punições e Chance de título) retornam erro com a linha do `punishments.csv`.
 - Status conforme os pontos restantes e a Suspensão:
 
 | Situação | Status |
@@ -235,8 +242,8 @@ O parâmetro `{season}` aceita o ano de qualquer temporada servida pela API, lis
 - A Suspensão vem da última punição que deixou o saldo em 0 ou menos e fica cumprida quando há uma Corrida disputada depois da Sessão dessa punição (uma Sprint não cumpre). O saldo continua zerado depois de cumprida, então uma nova punição gera outra Suspensão e o status volta a `Suspenso`.
 - A Chance de título usa o mesmo cálculo: quem está `Suspenso` aqui fica fora da primeira Corrida pendente na simulação.
 
-**Chance de título (2026)**
-- O que falta disputar vem do Calendário (`files/2026/calendar.csv`): uma Sessão sem CSV de resultado é pendente, mesmo que a data já tenha passado.
+**Chance de título (temporadas por Sessão)**
+- O que falta disputar vem do Calendário da temporada (`files/{ano}/calendar.csv`): uma Sessão sem CSV de resultado é pendente, mesmo que a data já tenha passado.
 - Pontos máximos (`max_points`): pontos atuais + os pontos do 1º lugar em cada Sessão pendente. Para equipes, do 1º e do 2º lugar (só do 1º se a equipe tiver um único piloto).
 - Status no título:
 
@@ -247,8 +254,8 @@ O parâmetro `{season}` aceita o ano de qualquer temporada servida pela API, lis
 | Todo o resto, inclusive empate exato nos Pontos máximos | `Na disputa` |
 
 - Sem Sessões pendentes, o 1º da classificação é `Campeao` e os demais, `Eliminado`.
-- A Chance de título (`championship_probability`, em %) vem de 10.000 simulações das Sessões pendentes. Em cada Corrida pendente, cada piloto sorteia uma das posições que já fez em Corridas de 2026, e a ordem de chegada é a ordenação desses sorteios (posições iguais são desempatadas por sorteio). Numa Sprint pendente, o sorteio é entre as posições em Sprints. Quem não tem nenhuma Sessão do tipo sorteia das posições do outro tipo. O campeão de cada simulação sai pelo mesmo desempate da classificação: pontos; vitórias em Corridas; pódios (Corridas e Sprints); mais 2ºs lugares em Corridas, depois mais 3ºs, e assim por diante; quem conseguiu primeiro o seu melhor resultado em Corridas; e, por fim, a ordem do ID. A contagem junta as posições das Corridas disputadas com as das Corridas pendentes simuladas, e as Sessões pendentes contam como posteriores às disputadas, na ordem do Calendário, para "quem conseguiu primeiro". Nos construtores, a contagem soma as posições dos pilotos da equipe em cada Corrida (nas simuladas, as dos seus pilotos atuais), e o melhor resultado é o de qualquer piloto da equipe. Assim, o campeão de cada simulação nunca sai por sorteio.
-- Entra na simulação todo piloto com alguma sessão disputada em 2026. Ele participa de cada Sessão pendente com a sua taxa de presença: Corridas que disputou / Corridas disputadas na temporada (quem só correu Sprints usa a razão sobre todas as sessões).
+- A Chance de título (`championship_probability`, em %) vem de 10.000 simulações das Sessões pendentes. Em cada Corrida pendente, cada piloto sorteia uma das posições que já fez em Corridas da temporada, e a ordem de chegada é a ordenação desses sorteios (posições iguais são desempatadas por sorteio). Numa Sprint pendente, o sorteio é entre as posições em Sprints. Quem não tem nenhuma Sessão do tipo sorteia das posições do outro tipo. O campeão de cada simulação sai pelo mesmo desempate da classificação: pontos; vitórias em Corridas; pódios (Corridas e Sprints); mais 2ºs lugares em Corridas, depois mais 3ºs, e assim por diante; quem conseguiu primeiro o seu melhor resultado em Corridas; e, por fim, a ordem do ID. A contagem junta as posições das Corridas disputadas com as das Corridas pendentes simuladas, e as Sessões pendentes contam como posteriores às disputadas, na ordem do Calendário, para "quem conseguiu primeiro". Nos construtores, a contagem soma as posições dos pilotos da equipe em cada Corrida (nas simuladas, as dos seus pilotos atuais), e o melhor resultado é o de qualquer piloto da equipe. Assim, o campeão de cada simulação nunca sai por sorteio.
+- Entra na simulação todo piloto com alguma sessão disputada na temporada. Ele participa de cada Sessão pendente com a sua taxa de presença: Corridas que disputou / Corridas disputadas na temporada (quem só correu Sprints usa a razão sobre todas as sessões).
 - Punições futuras não são sorteadas. Um piloto com a Superlicença zerada fica fora da primeira Corrida pendente (Suspensão), a menos que já tenha havido uma Corrida disputada depois da punição que zerou a Superlicença. Depois de cumprida, só uma nova punição gera outra Suspensão. A Suspensão não muda os Pontos máximos nem o status.
 - No campeonato de construtores, os pontos simulados de cada piloto vão para a equipe atual dele (a da sessão mais recente).
 - `Eliminado` sempre tem 0% e `Campeao` sempre 100%. `expected_points` é a média dos pontos finais nas simulações.
@@ -259,7 +266,7 @@ O parâmetro `{season}` aceita o ano de qualquer temporada servida pela API, lis
   - `Campeao` antes da última Sessão: nenhum rival alcança mais os seus pontos, com os Pontos máximos do mais próximo.
   - `Na disputa`, do caso mais específico para o mais geral:
     - Pontos máximos exatamente iguais aos pontos do líder: só alcança o líder vencendo todas as Sessões pendentes (para equipes, fazendo 1º e 2º, ou só vencendo, com um único piloto) e ainda dependeria do desempate.
-    - Chance de título exibida como 0,0 (quem não lidera) ou 100,0 (o líder, ainda sem ser `Campeao`, contra o 2º): primeiro vale o argumento do pior resultado do líder. Em cada tipo de Sessão pendente, o líder repete a pior posição que já fez em 2026 naquele tipo (quem nunca disputou o tipo usa o outro, como a simulação); a soma desses pontos nas Sessões pendentes é o seu ganho mínimo. Se os pontos do líder mais o ganho mínimo passam dos Pontos máximos do rival (para o líder, de todo rival `Na disputa`), o Motivo cita o pior resultado e quanto o rival tira no máximo da vantagem ("Matheus nunca terminou abaixo do 6º em Corridas de 2026; repetindo isso nas 5 Sessões pendentes, perde no máximo 85 pontos, menos que os 89 de vantagem."; quando o pior resultado é a vitória, "venceu todas as Corridas de 2026"). O texto cita só os tipos de Sessão que o líder disputou, entre os usados pelas Sessões pendentes. Nas equipes, o ganho mínimo da líder é a soma do ganho mínimo de cada piloto atual dela, e o texto cita o pior resultado de cada um. O argumento só entra quando o líder tem 100% de presença (nas equipes, todos os pilotos atuais da líder, que precisa ter pelo menos um).
+    - Chance de título exibida como 0,0 (quem não lidera) ou 100,0 (o líder, ainda sem ser `Campeao`, contra o 2º): primeiro vale o argumento do pior resultado do líder. Em cada tipo de Sessão pendente, o líder repete a pior posição que já fez na temporada naquele tipo (quem nunca disputou o tipo usa o outro, como a simulação); a soma desses pontos nas Sessões pendentes é o seu ganho mínimo. Se os pontos do líder mais o ganho mínimo passam dos Pontos máximos do rival (para o líder, de todo rival `Na disputa`), o Motivo cita o pior resultado e quanto o rival tira no máximo da vantagem ("Matheus nunca terminou abaixo do 6º em Corridas de 2026; repetindo isso nas 5 Sessões pendentes, perde no máximo 85 pontos, menos que os 89 de vantagem."; quando o pior resultado é a vitória, "venceu todas as Corridas de 2026"; o ano é o da temporada). O texto cita só os tipos de Sessão que o líder disputou, entre os usados pelas Sessões pendentes. Nas equipes, o ganho mínimo da líder é a soma do ganho mínimo de cada piloto atual dela, e o texto cita o pior resultado de cada um. O argumento só entra quando o líder tem 100% de presença (nas equipes, todos os pilotos atuais da líder, que precisa ter pelo menos um).
     - Sem o argumento, o texto genérico: com 0,0, quase nunca é campeão nas simulações, com os pontos que precisaria tirar do líder nas Sessões pendentes; com 100,0, é campeão em quase todas as simulações, com os pontos que o 2º precisaria tirar.
     - Os demais: a distância para o líder (ou, para o líder, a vantagem sobre o 2º), as Sessões pendentes e os pontos médios nas simulações, os seus e os do rival.
   - Só para quem está `Na disputa`, depois da frase principal, entram as frases dos fatores que mexem na porcentagem sem aparecer no JSON: primeiro a Suspensão ("Fica fora da próxima Corrida por Suspensão."; na equipe, citando os pilotos atuais suspensos: "Ana fica fora da próxima Corrida por Suspensão.") e depois, só para pilotos, a presença abaixo de 100% ("Disputou 12 das 18 Corridas, então nas simulações corre só parte das Sessões pendentes.", com "Sessões" no lugar de "Corridas" para quem só correu Sprints). `Campeao` e `Eliminado` não recebem essas frases, porque elas não mudam a situação.
@@ -427,7 +434,11 @@ Um piloto com o saldo em 0 ou menos aparece com `status` `Suspenso` (Suspensão 
 ]
 ```
 
-Cada punição precisa apontar para um `driver_id` e um `race_id` existentes em 2026; caso contrário, o endpoint retorna erro indicando a linha do `punishments.csv`.
+Cada punição precisa apontar para um `driver_id` com Sessão disputada na temporada e para um `race_id` disputado nela; caso contrário, o endpoint retorna erro indicando a linha do `punishments.csv`, por exemplo:
+
+```json
+{"detail": "super_license/punishments.csv, linha 5: coluna 'race_id' com valor '99' (esperado uma Sessão disputada em 2026)."}
+```
 
 ### 7. Chance de Título dos Pilotos (2026)
 `GET /load/2026/prediction/drivers`

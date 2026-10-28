@@ -9,12 +9,26 @@ import main
 
 ROOT = Path(__file__).resolve().parents[1]
 SEASONS = ("2025", "2026")
+SESSION_SEASONS = ("2026",)
 API_ROUTES = [r.path for r in main.app.routes if isinstance(r, APIRoute) and "GET" in r.methods]
+# Rotas que só existem nas temporadas por Sessão: em 2025 respondem 404 (tests/test_seasons.py)
+SESSION_ONLY_ROUTES = {
+    "/load/{season}/punishments",
+    "/load/{season}/super-license",
+    "/load/{season}/prediction/drivers",
+    "/load/{season}/prediction/teams",
+}
 
 
 def expand(path):
-    """Troca {season} por cada temporada: '/load/{season}/drivers' -> '/load/2025/drivers', '/load/2026/drivers'."""
-    return [path.replace("{season}", season) for season in SEASONS] if "{season}" in path else [path]
+    """
+    Troca {season} por cada temporada: '/load/{season}/drivers' -> '/load/2025/drivers', '/load/2026/drivers'.
+    As rotas que só existem nas temporadas por Sessão ficam só com elas: '/load/2026/punishments'.
+    """
+    if "{season}" not in path:
+        return [path]
+    seasons = SESSION_SEASONS if path in SESSION_ONLY_ROUTES else SEASONS
+    return [path.replace("{season}", season) for season in seasons]
 
 
 # Toda rota da API entra nos testes de resposta automaticamente

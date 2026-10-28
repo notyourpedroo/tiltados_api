@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-Calcular o status da Superlicença de 2026.
+Calcular o status da Superlicença de uma temporada por Sessão.
 
-Este módulo calcula o saldo de pontos da Superlicença para cada piloto de 2026:
-- Todos os pilotos iniciam com 12 pontos.
-- Cada infração registrada em punishments.csv deduz pontos da carteira.
+Este módulo calcula o saldo de pontos da Superlicença para cada piloto da temporada:
+- Todos os pilotos iniciam cada temporada com 12 pontos.
+- Cada infração da temporada registrada em punishments.csv deduz pontos da Superlicença;
+  as punições de outras temporadas não contam.
 - Gera o saldo restante e o status disciplinar do piloto.
 - Decide quem tem Suspensão a cumprir: é o mesmo cálculo que a Chance de título usa.
 """
@@ -74,11 +75,11 @@ def _pending_suspensions(driver_ids, df_races, df_punishments, initial_points):
 def calculate_super_license(
     initial_points=INITIAL_SUPER_LICENSE_POINTS,
     base_path_sl="./files/super_license",
-    base_path_2026="./files/2026",
-    base_path_2025="./files/2025"
+    base_path="./files/2026",
+    season_year=2026,
 ):
     """
-    Calcula a tabela de pontos da Superlicença para a temporada de 2026.
+    Calcula a tabela de pontos da Superlicença de uma temporada por Sessão.
 
     Colunas do DataFrame retornado:
     - driver_id: ID único do piloto
@@ -96,22 +97,22 @@ def calculate_super_license(
     Args:
         initial_points (int): Pontos concedidos a cada piloto no início da temporada.
         base_path_sl (str): Caminho para a pasta de punições da superlicença.
-        base_path_2026 (str): Caminho para os dados de 2026.
-        base_path_2025 (str): Caminho para os dados de 2025.
+        base_path (str): Caminho para a pasta da temporada (ex.: './files/2027').
+                         Padrão: './files/2026'
+        season_year (int): Ano da temporada; só as punições com esse season_year contam.
 
     Returns:
         pd.DataFrame: Tabela de controle da Superlicença.
 
     Raises:
-        DataError: Se os dados de 2026 ou o arquivo de punições forem inválidos, ou se
-                   uma punição apontar para piloto ou Sessão inexistente em 2026.
+        DataError: Se os dados da temporada ou o arquivo de punições forem inválidos, ou se
+                   uma punição da temporada apontar para piloto ou Sessão não disputada nela.
     """
-    df_drivers = load_drivers(base_path=base_path_2026, base_path_2025=base_path_2025)
-    df_teams = load_teams(base_path=base_path_2026, base_path_2025=base_path_2025)
-    df_races = load_races(base_path=base_path_2026, base_path_2025=base_path_2025)
+    df_drivers = load_drivers(base_path=base_path)
+    df_teams = load_teams(base_path=base_path)
+    df_races = load_races(base_path=base_path)
     df_punishments = load_punishments(
-        base_path=base_path_sl, season_year=2026, enriched=True,
-        base_path_2026=base_path_2026, base_path_2025=base_path_2025,
+        base_path=base_path_sl, season_year=season_year, enriched=True, season_path=base_path,
     )
 
     # 1. Totalizar deduções por piloto
@@ -123,7 +124,7 @@ def calculate_super_license(
     else:
         deductions = pd.DataFrame(columns=["driver_id", "deducted_points", "punishments_count"])
 
-    # 2. Cruzar com a lista completa de pilotos de 2026
+    # 2. Cruzar com a lista completa de pilotos da temporada
     df_sl = df_drivers.merge(deductions, on="driver_id", how="left")
     df_sl["deducted_points"] = df_sl["deducted_points"].fillna(0).astype(int)
     df_sl["punishments_count"] = df_sl["punishments_count"].fillna(0).astype(int)

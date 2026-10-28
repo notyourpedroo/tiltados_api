@@ -156,17 +156,19 @@ SCENARIOS = [
         [f"{PUNISHMENTS}, linha 5", "'driver_id'", "'oito'"],
     ),
     (
-        "punicao para corrida inexistente",
+        "punicao para Sessao nao disputada na temporada",
         _replace(PUNISHMENTS, "2026,8,34,", "2026,8,99,"),
         "/load/2026/punishments",
-        [f"{PUNISHMENTS}, linha 5", "race_id 99"],
+        [f"{PUNISHMENTS}, linha 5: coluna 'race_id' com valor '99' (esperado uma Sessão disputada em 2026)."],
     ),
     (
-        "calendario ausente",
-        _remove(CALENDAR),
-        PREDICTION,
-        [f"{CALENDAR} não encontrado"],
+        "punicao para piloto sem Sessao disputada na temporada",
+        _replace(PUNISHMENTS, "2026,8,34,", "2026,1,34,"),
+        "/load/2026/super-license",
+        [f"{PUNISHMENTS}, linha 5: coluna 'driver_id' com valor '1' "
+         "(esperado um piloto do Cadastro com Sessão disputada em 2026)."],
     ),
+    # Calendário ausente não é erro de dados: a pasta deixa de ser temporada (404, em test_seasons.py)
     (
         "coluna ausente no calendario",
         _replace(CALENDAR, "local,tipo,data", "local,tipo,dia"),

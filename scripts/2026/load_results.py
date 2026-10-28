@@ -35,7 +35,7 @@ RESULT_COLUMNS = [
 ]
 
 
-def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
+def load_results(base_path="./files/2026"):
     """
     Lê os arquivos CSV de uma temporada por Sessão (2026 em diante) e retorna o
     DataFrame com os resultados consolidados.
@@ -53,9 +53,6 @@ def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
     Args:
         base_path (str): Caminho para a pasta da temporada (ex.: './files/2027').
                          Padrão: './files/2026'
-        base_path_2025 (str): Não é mais usado (os IDs vêm do Cadastro). Fica na
-                              assinatura porque os chamadores passam os mesmos
-                              caminhos a todos os loaders de 2026.
 
     Returns:
         pd.DataFrame: DataFrame com os resultados das sessões da temporada.
@@ -69,9 +66,9 @@ def load_results(base_path="./files/2026", base_path_2025="./files/2025"):
 
     # 1. IDs de corridas, pilotos e equipes vêm dos próprios loaders,
     #    para que todos os endpoints usem o mesmo mapeamento
-    df_races = load_races(base_path=base_path, base_path_2025=base_path_2025)
-    df_drivers = load_drivers(base_path=base_path, base_path_2025=base_path_2025)
-    df_teams = load_teams(base_path=base_path, base_path_2025=base_path_2025)
+    df_races = load_races(base_path=base_path)
+    df_drivers = load_drivers(base_path=base_path)
+    df_teams = load_teams(base_path=base_path)
 
     driver_id_map = dict(zip(df_drivers["driver_name"], df_drivers["driver_id"]))
     team_id_map = dict(zip(df_teams["team_name"], df_teams["team_id"]))

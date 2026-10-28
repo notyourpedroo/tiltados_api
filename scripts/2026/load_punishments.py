@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Retornar o DataFrame das punições da Superlicença de 2026.
+Retornar o DataFrame das punições da Superlicença de uma temporada por Sessão.
 
-Este módulo lê o arquivo de punições (punishments.csv) da Superlicença e
-filtra/estrutura as penalidades aplicadas na temporada de 2026.
+Este módulo lê o arquivo de punições (punishments.csv) da Superlicença, único para
+todas as temporadas, e filtra/estrutura as penalidades aplicadas na temporada pedida
+(coluna season_year).
 """
 
 import os
@@ -24,16 +25,15 @@ def load_punishments(
     base_path="./files/super_license",
     season_year=2026,
     enriched=False,
-    base_path_2026="./files/2026",
-    base_path_2025="./files/2025"
+    season_path="./files/2026",
 ):
     """
-    Lê o arquivo punishments.csv e retorna as punições registradas para a temporada de 2026.
+    Lê o arquivo punishments.csv e retorna as punições registradas para a temporada pedida.
 
     Campos padrão retornados:
-    - season_year: Ano da temporada (2026)
+    - season_year: Ano da temporada
     - driver_id: ID único do piloto penalizado
-    - race_id: ID, no Cadastro de Sessões, da corrida onde ocorreu a infração
+    - race_id: ID, no Cadastro de Sessões, da Sessão onde ocorreu a infração
     - deduction_points: Quantidade de pontos deduzidos na Superlicença
     - penalty_reason: Descrição/motivo da penalidade
 
@@ -42,17 +42,19 @@ def load_punishments(
                          Padrão: './files/super_license'
         season_year (int): Ano da temporada a ser filtrada. Padrão: 2026.
         enriched (bool): Se True, inclui driver_name, team_id, team_name, race_name e race_date,
-                         e valida que cada punição aponta para um piloto e uma corrida de 2026.
-        base_path_2026 (str): Caminho para os dados de 2026 (usado só com enriched=True).
-        base_path_2025 (str): Caminho para os dados de 2025 (usado só com enriched=True).
+                         e valida que cada punição aponta para um piloto e uma Sessão disputada
+                         da própria temporada.
+        season_path (str): Caminho para a pasta da temporada (usado só com enriched=True).
+                           Padrão: './files/2026'
 
     Returns:
         pd.DataFrame: DataFrame com as punições da temporada.
 
     Raises:
         DataError: Se o arquivo de punições não existir, faltar coluna obrigatória,
-                   houver valor numérico inválido ou (com enriched=True) uma punição
-                   apontar para piloto ou corrida inexistente.
+                   houver valor numérico inválido ou (com enriched=True) uma punição da
+                   temporada apontar para um piloto sem Sessão disputada nela ou para uma
+                   Sessão que não foi disputada nela.
     """
     punishments_file = os.path.join(base_path, "punishments.csv")
 
@@ -79,21 +81,21 @@ def load_punishments(
             from load_races import load_races
             from load_teams import load_teams
 
-        df_drivers = load_drivers(base_path=base_path_2026, base_path_2025=base_path_2025)
-        df_teams = load_teams(base_path=base_path_2026, base_path_2025=base_path_2025)
-        df_races = load_races(base_path=base_path_2026, base_path_2025=base_path_2025)
+        df_drivers = load_drivers(base_path=season_path)
+        df_teams = load_teams(base_path=season_path)
+        df_races = load_races(base_path=season_path)
 
-        # Toda punição precisa apontar para um piloto e uma corrida que existem na temporada
-        for column, valid_ids, label in (
-            ("driver_id", df_drivers["driver_id"], "nenhum piloto"),
-            ("race_id", df_races["race_id"], "nenhuma corrida"),
+        # Toda punição precisa apontar para um piloto e uma Sessão disputada da própria temporada
+        for column, valid_ids, expected in (
+            ("driver_id", df_drivers["driver_id"], f"um piloto do Cadastro com Sessão disputada em {season_year}"),
+            ("race_id", df_races["race_id"], f"uma Sessão disputada em {season_year}"),
         ):
             unknown = ~df_filtered[column].isin(valid_ids)
             if unknown.any():
                 pos = int(unknown.to_numpy().argmax())
                 raise DataError(
                     f"{display_path(punishments_file)}, linha {df_filtered.index[pos] + 2}: "
-                    f"{column} {df_filtered[column].iloc[pos]} não corresponde a {label} de {season_year}."
+                    f"coluna '{column}' com valor '{df_filtered[column].iloc[pos]}' (esperado {expected})."
                 )
 
         df_filtered = df_filtered.merge(

@@ -34,7 +34,7 @@ except (ImportError, ValueError):
     from errors import read_csv, require_columns, to_int_column
 
 
-def _calculate_base_points(base_path="./files/2026", base_path_2025="./files/2025"):
+def _calculate_base_points(base_path="./files/2026"):
     """Função interna para cruzar resultados de 2026 com a tabela de pontuação (scores.csv)."""
     scores_file = os.path.join(base_path, "scores.csv")
     df_scores = read_csv(scores_file)
@@ -42,8 +42,8 @@ def _calculate_base_points(base_path="./files/2026", base_path_2025="./files/202
     df_scores["position"] = to_int_column(df_scores, "position", scores_file)
     df_scores["points"] = to_int_column(df_scores, "points", scores_file)
 
-    df_results = load_results(base_path=base_path, base_path_2025=base_path_2025)
-    df_races = load_races(base_path=base_path, base_path_2025=base_path_2025)
+    df_results = load_results(base_path=base_path)
+    df_races = load_races(base_path=base_path)
 
     # Cruzar com corridas para obter is_sprint e a ordem cronológica da Sessão (load_races já vem em ordem)
     df_races = df_races[["race_id", "is_sprint"]].assign(session_order=range(len(df_races)))
@@ -178,7 +178,7 @@ def _sort_standings(stats, merged, by):
     return stats
 
 
-def calculate_driver_standings(base_path="./files/2026", base_path_2025="./files/2025"):
+def calculate_driver_standings(base_path="./files/2026"):
     """
     Calcula a classificação completa do campeonato de pilotos de 2026.
 
@@ -194,10 +194,10 @@ def calculate_driver_standings(base_path="./files/2026", base_path_2025="./files
     - podiums: Total de pódios (1º a 3º lugar)
     - races: Total de sessões disputadas
     """
-    merged = _calculate_base_points(base_path=base_path, base_path_2025=base_path_2025)
+    merged = _calculate_base_points(base_path=base_path)
 
-    df_drivers = load_drivers(base_path=base_path, base_path_2025=base_path_2025)
-    df_teams = load_teams(base_path=base_path, base_path_2025=base_path_2025)
+    df_drivers = load_drivers(base_path=base_path)
+    df_teams = load_teams(base_path=base_path)
 
     # Agrupar por piloto
     driver_stats = merged.groupby("driver_id").agg(
@@ -220,7 +220,7 @@ def calculate_driver_standings(base_path="./files/2026", base_path_2025="./files
     return driver_stats[cols]
 
 
-def calculate_team_standings(base_path="./files/2026", base_path_2025="./files/2025"):
+def calculate_team_standings(base_path="./files/2026"):
     """
     Calcula a classificação completa do campeonato de construtores de 2026.
 
@@ -232,9 +232,9 @@ def calculate_team_standings(base_path="./files/2026", base_path_2025="./files/2
     - wins: Vitórias em Grandes Prêmios
     - podiums: Total de pódios conquistados pelos pilotos da equipe
     """
-    merged = _calculate_base_points(base_path=base_path, base_path_2025=base_path_2025)
+    merged = _calculate_base_points(base_path=base_path)
 
-    df_teams = load_teams(base_path=base_path, base_path_2025=base_path_2025)
+    df_teams = load_teams(base_path=base_path)
 
     # Agrupar por equipe
     team_stats = merged.groupby("team_id").agg(
@@ -251,21 +251,21 @@ def calculate_team_standings(base_path="./files/2026", base_path_2025="./files/2
     return team_stats[cols]
 
 
-def calculate_standings(type="drivers", base_path="./files/2026", base_path_2025="./files/2025"):
+def calculate_standings(type="drivers", base_path="./files/2026"):
     """
-    Função principal de cálculo de standings para 2026.
+    Função principal de cálculo de standings de uma temporada por Sessão.
 
     Args:
         type (str): 'drivers' para pilotos ou 'teams'/'constructors' para equipes.
-        base_path (str): Caminho base dos arquivos de 2026.
-        base_path_2025 (str): Caminho base dos arquivos de 2025.
+        base_path (str): Caminho para a pasta da temporada (ex.: './files/2027').
+                         Padrão: './files/2026'
 
     Returns:
         pd.DataFrame: Tabela de classificação solicitada.
     """
     if type in ["teams", "constructors"]:
-        return calculate_team_standings(base_path=base_path, base_path_2025=base_path_2025)
-    return calculate_driver_standings(base_path=base_path, base_path_2025=base_path_2025)
+        return calculate_team_standings(base_path=base_path)
+    return calculate_driver_standings(base_path=base_path)
 
 
 # Aliases para retrocompatibilidade

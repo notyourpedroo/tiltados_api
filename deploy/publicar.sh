@@ -17,6 +17,7 @@ SERVICE=tiltados-api
 OLD_SERVICE=tiltados-api-legacy
 KEEP=3
 # Todas as rotas da API, uma por temporada; tests/test_endpoints.py falha se faltar alguma.
+# Superlicença, punições e Chance de título só existem nas temporadas por Sessão (em 2025, 404).
 HEALTH_URLS=(
   http://127.0.0.1:8000/
   http://127.0.0.1:8000/load/2025/drivers
