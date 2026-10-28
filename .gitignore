@@ -12,9 +12,8 @@ __pycache__/
 .vscode/
 .idea/
 
-# Agentes de IA (configuracoes e instrucoes locais)
+# Agentes de IA (configuracoes locais; o CLAUDE.md e versionado para chegar aos worktrees)
 AGENTS.md
-CLAUDE.md
 /.claude/
 
 # Pytest
