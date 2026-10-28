@@ -56,8 +56,27 @@ def reset_2026_season(data_dir):
         f.write("season_year,driver_id,race_id,deduction_points,penalty_reason\n")
 
 
+def register(data_dir, file_name, names):
+    """Acrescenta ao Cadastro (drivers.csv ou teams.csv) os nomes que ainda não estão nele, com o próximo ID livre."""
+    path = data_dir / file_name
+    with open(path, encoding="utf-8") as f:
+        rows = [line.rstrip("\n").split(",", 1) for line in f.readlines()[1:] if line.strip()]
+    registered = {name for _, name in rows}
+    next_id = max(int(row_id) for row_id, _ in rows) + 1
+    with open(path, "a", encoding="utf-8") as f:
+        for name in dict.fromkeys(names):
+            if name not in registered:
+                f.write(f"{next_id},{name}\n")
+                next_id += 1
+
+
 def write_session(data_dir, file_name, rows):
-    """Cria um CSV de sessão de 2026 com o cabeçalho do export e as linhas dadas."""
+    """
+    Cria um CSV de sessão de 2026 com o cabeçalho do export e as linhas dadas.
+    Pilotos e equipes fora do Cadastro da cópia são cadastrados antes.
+    """
+    register(data_dir, "drivers.csv", [driver for _, driver, _, _ in rows])
+    register(data_dir, "teams.csv", [team for _, _, team, _ in rows])
     lines = [
         f"{pos},{driver},{team},{grid},2,1:30.000,40:00.000,0,Pessoa\n"
         for pos, driver, team, grid in rows

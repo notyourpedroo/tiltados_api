@@ -52,24 +52,51 @@ def test_equipe_do_piloto_e_a_da_sessao_mais_recente(client, data_dir):
     assert mike["team_id"] == teams["Scuderia Ferrari HP"]
 
 
-def test_estreantes_recebem_ids_novos(client, data_dir):
+def test_gp_novo_recebe_race_id_novo(client, data_dir):
     before_races = client.get("/load/2026/races").json()
-    before_drivers = client.get("/load/2026/drivers").json()
-    before_teams = client.get("/load/2026/teams").json()
+
+    write_session(data_dir, "imola_sprint_20261020.csv", [(1, "Bryan", "Scuderia Ferrari HP", 1)])
+
+    race = races_by_name(client, "2026")["GP de Imola (SPRINT)"]
+    assert race["race_id"] > max(r["race_id"] for r in before_races)
+
+
+def test_estreantes_entram_com_o_id_do_cadastro(client, data_dir):
+    replace_in_file(data_dir / "drivers.csv", "11,Erick\n", "11,Erick\n20,Zeca\n")
+    replace_in_file(data_dir / "teams.csv", "7,Visa Cash App Racing Bulls\n",
+                    "7,Visa Cash App Racing Bulls\n15,Williams Racing\n")
 
     write_session(data_dir, "imola_sprint_20261020.csv", [
         (1, "Zeca", "Williams Racing", 1),
         (2, "Bryan", "Scuderia Ferrari HP", 2),
     ])
 
-    race = races_by_name(client, "2026")["GP de Imola (SPRINT)"]
     zeca = next(d for d in client.get("/load/2026/drivers").json() if d["driver_name"] == "Zeca")
     williams = next(t for t in client.get("/load/2026/teams").json() if t["team_name"] == "Williams Racing")
 
-    assert race["race_id"] > max(r["race_id"] for r in before_races)
-    assert zeca["driver_id"] > max(d["driver_id"] for d in before_drivers)
-    assert williams["team_id"] > max(t["team_id"] for t in before_teams)
-    assert zeca["team_id"] == williams["team_id"]
+    assert zeca == {"driver_id": 20, "team_id": 15, "driver_name": "Zeca"}
+    assert williams == {"team_id": 15, "team_name": "Williams Racing"}
+
+
+def test_pilotos_e_equipes_de_2025_tem_o_mesmo_id_no_cadastro(client, data_dir):
+    # Uma Sessão com todo o grid de 2025 faz /load/2026/* mostrar o ID de cada um no Cadastro.
+    # Desde 2026 os CSVs trazem a Red Bull como "Red Bull"; em 2025 era "Oracle Red Bull Racing".
+    renamed = {"Oracle Red Bull Racing": "Red Bull"}
+    drivers_2025 = client.get("/load/2025/drivers").json()
+    teams_2025 = {t["team_id"]: t["team_name"] for t in client.get("/load/2025/teams").json()}
+
+    write_session(data_dir, "mexico_race_20261026.csv", [
+        (pos, driver["driver_name"], renamed.get(teams_2025[driver["team_id"]], teams_2025[driver["team_id"]]), pos)
+        for pos, driver in enumerate(drivers_2025, start=1)
+    ])
+    drivers_2026 = {d["driver_name"]: d["driver_id"] for d in client.get("/load/2026/drivers").json()}
+    teams_2026 = {t["team_name"]: t["team_id"] for t in client.get("/load/2026/teams").json()}
+
+    assert len(drivers_2025) == 10 and len(teams_2025) == 5
+    for driver in drivers_2025:
+        assert drivers_2026[driver["driver_name"]] == driver["driver_id"], driver["driver_name"]
+    for team_id, team_name in teams_2025.items():
+        assert teams_2026[renamed.get(team_name, team_name)] == team_id, team_name
 
 
 def test_dados_recarregam_quando_o_csv_muda(client, data_dir):

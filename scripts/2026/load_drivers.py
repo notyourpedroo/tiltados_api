@@ -3,7 +3,7 @@
 Retornar o DataFrame dos pilotos de 2026.
 
 Este módulo extrai os pilotos participantes a partir dos arquivos de resultados
-de 2026, associando os IDs das equipes e mantendo a consistência de IDs entre temporadas.
+de 2026, com o ID e o nome vindos do Cadastro e a equipe da Sessão mais recente.
 """
 
 import os
@@ -13,16 +13,18 @@ import pandas as pd
 # Suporta tanto importação relativa de pacote quanto execução direta de script
 try:
     from .common import list_sessions, read_session_results
+    from .load_registry import load_registered_drivers, require_registered
     from .load_teams import load_teams
-    from ..errors import DataError, display_path, read_csv, require_columns, require_dir, to_int_column
+    from ..errors import DataError, display_path, require_dir
 except (ImportError, ValueError):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     for path in (current_dir, os.path.dirname(current_dir)):
         if path not in sys.path:
             sys.path.insert(0, path)
     from common import list_sessions, read_session_results
+    from load_registry import load_registered_drivers, require_registered
     from load_teams import load_teams
-    from errors import DataError, display_path, read_csv, require_columns, require_dir, to_int_column
+    from errors import DataError, display_path, require_dir
 
 
 def _is_placeholder_driver(value):
@@ -33,43 +35,39 @@ def _is_placeholder_driver(value):
     return not name or name.lower() == "pessoa"
 
 
-def load_drivers(base_path="./files/2026", base_path_2025="./files/2025"):
+def load_drivers(base_path="./files/2026", base_path_2025="./files/2025", registry_path=None):
     """
     Lê os arquivos de resultados de 2026 e extrai os pilotos participantes.
 
     Gera um DataFrame com as seguintes colunas:
-    - driver_id: ID único do piloto (mantém consistência com histórico de 2025)
-    - team_id: ID da equipe na sessão mais recente do piloto (mantém consistência com histórico de 2025)
-    - driver_name: Nome do piloto
+    - driver_id: ID do piloto no Cadastro (o mesmo em todas as temporadas)
+    - team_id: ID, no Cadastro, da equipe na sessão mais recente do piloto
+    - driver_name: Nome do piloto no Cadastro
 
     Args:
         base_path (str): Caminho para a pasta dos dados de 2026.
                          Padrão: './files/2026'
-        base_path_2025 (str): Caminho para a pasta dos dados de 2025.
-                              Padrão: './files/2025'
+        base_path_2025 (str): Não é mais usado (os IDs vêm do Cadastro). Fica na
+                              assinatura porque os chamadores passam os mesmos
+                              caminhos a todos os loaders de 2026.
+        registry_path (str): Pasta do Cadastro. Padrão: a pasta acima de `base_path`.
 
     Returns:
         pd.DataFrame: DataFrame com os pilotos de 2026 (driver_id, team_id, driver_name).
 
     Raises:
         DataError: Se a pasta de 2026 não existir, algum CSV de sessão for inválido,
-                   algum resultado tiver o piloto vazio ou como 'Pessoa' ou o
-                   drivers.csv de 2025 for inválido.
+                   algum resultado tiver o piloto vazio ou como 'Pessoa', algum
+                   piloto ou equipe não estiver no Cadastro ou o Cadastro for inválido.
     """
     require_dir(base_path)
+    if registry_path is None:
+        registry_path = os.path.dirname(os.path.normpath(base_path))
 
-    # 1. Carregar mapeamento de IDs de pilotos existentes (2025)
-    driver_id_map = {}
-    drivers_2025_file = os.path.join(base_path_2025, "drivers.csv")
-    if os.path.exists(drivers_2025_file):
-        df_2025_drivers = read_csv(drivers_2025_file)
-        require_columns(df_2025_drivers, ["driver_id", "driver_name"], drivers_2025_file)
-        df_2025_drivers["driver_id"] = to_int_column(df_2025_drivers, "driver_id", drivers_2025_file)
-        driver_id_map = dict(zip(df_2025_drivers["driver_name"], df_2025_drivers["driver_id"]))
+    df_registered = load_registered_drivers(registry_path)
+    driver_id_map = dict(zip(df_registered["driver_name"], df_registered["driver_id"]))
 
-    max_driver_id = max(driver_id_map.values()) if driver_id_map else 0
-
-    # 2. Extrair pilotos de 2026 em ordem cronológica,
+    # 1. Extrair pilotos de 2026 em ordem cronológica,
     #    para que a equipe de cada piloto seja a da sessão mais recente
     driver_team_map = {}
 
@@ -85,29 +83,27 @@ def load_drivers(base_path="./files/2026", base_path_2025="./files/2025"):
                     f"linha {i + 2}: '{row['Piloto']}'. Corrija o nome do piloto no CSV."
                 )
 
+        require_registered(df_session, "Piloto", driver_id_map, "um piloto do Cadastro", session["file_path"])
+
+        for _, row in df_session.iterrows():
             driver_team_map[str(row["Piloto"]).strip()] = str(row["Equipe"]).strip()
 
     if not driver_team_map:
         raise DataError(f"Nenhum resultado encontrado nos CSVs de {display_path(base_path)}.")
 
-    # 3. IDs das equipes vêm de load_teams, a fonte única desse mapeamento
-    df_teams = load_teams(base_path=base_path, base_path_2025=base_path_2025)
+    # 2. IDs das equipes vêm de load_teams, que também confere o Cadastro de equipes
+    df_teams = load_teams(base_path=base_path, registry_path=registry_path)
     team_id_map = dict(zip(df_teams["team_name"], df_teams["team_id"]))
 
-    # 4. Construir o DataFrame de pilotos
-    rows = []
-    for driver_name in sorted(driver_team_map.keys()):
-        if driver_name not in driver_id_map:
-            max_driver_id += 1
-            driver_id_map[driver_name] = max_driver_id
-
-        rows.append({
+    # 3. Construir o DataFrame de pilotos
+    df_drivers = pd.DataFrame([
+        {
             "driver_id": int(driver_id_map[driver_name]),
-            "team_id": int(team_id_map[driver_team_map[driver_name]]),
-            "driver_name": driver_name
-        })
-
-    df_drivers = pd.DataFrame(rows)
+            "team_id": int(team_id_map[team_name]),
+            "driver_name": driver_name,
+        }
+        for driver_name, team_name in driver_team_map.items()
+    ])
     df_drivers = df_drivers.sort_values("driver_id").reset_index(drop=True)
     df_drivers["driver_id"] = df_drivers["driver_id"].astype(int)
     df_drivers["team_id"] = df_drivers["team_id"].astype(int)

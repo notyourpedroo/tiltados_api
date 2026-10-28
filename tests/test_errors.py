@@ -11,6 +11,8 @@ MIAMI = "2026/miami_race_20260427.csv"
 PUNISHMENTS = "super_license/punishments.csv"
 CALENDAR = "2026/calendar.csv"
 PREDICTION = "/load/2026/prediction/drivers"
+DRIVERS_REGISTRY = "drivers.csv"
+TEAMS_REGISTRY = "teams.csv"
 
 
 def _replace(relative_path, old, new):
@@ -52,6 +54,50 @@ SCENARIOS = [
         _replace(MIAMI, "4,Gabriel,Visa", "4,Pessoa,Visa"),
         "/load/2026/drivers",
         [f"{MIAMI}, linha 5", "'Pessoa'"],
+    ),
+    (
+        "piloto fora do Cadastro",
+        _replace(JAPAO, "3,Yohan,", "3,Mateus,"),
+        "/load/2026/drivers",
+        [f"{JAPAO}, linha 4: coluna 'Piloto' com valor 'Mateus' (esperado um piloto do Cadastro)."],
+    ),
+    (
+        "equipe fora do Cadastro",
+        _replace(JAPAO, "3,Yohan,Red Bull,", "3,Yohan,Redbull,"),
+        "/load/2026/teams",
+        [f"{JAPAO}, linha 4: coluna 'Equipe' com valor 'Redbull' (esperado uma equipe do Cadastro)."],
+    ),
+    (
+        "ID repetido no Cadastro de pilotos",
+        _replace(DRIVERS_REGISTRY, "11,Erick", "10,Erick"),
+        "/load/2026/drivers",
+        ["drivers.csv, linha 12: coluna 'driver_id' com valor '10' "
+         "(esperado um valor único no Cadastro, já usado na linha 11)."],
+    ),
+    (
+        "nome repetido no Cadastro de equipes",
+        _replace(TEAMS_REGISTRY, "5,Stake F1 Team Kick Sauber", "5,Red Bull"),
+        "/load/2026/teams",
+        ["teams.csv, linha 6: coluna 'team_name' com valor 'Red Bull' "
+         "(esperado um valor único no Cadastro, já usado na linha 2)."],
+    ),
+    (
+        "coluna ausente no Cadastro",
+        _replace(DRIVERS_REGISTRY, "driver_id,driver_name", "driver_id,nome"),
+        "/load/2026/standings/drivers",
+        [DRIVERS_REGISTRY, "'driver_name'"],
+    ),
+    (
+        "ID nao inteiro no Cadastro",
+        _replace(TEAMS_REGISTRY, "6,Mercedes", "seis,Mercedes"),
+        "/load/2026/standings/teams",
+        [f"{TEAMS_REGISTRY}, linha 7", "'team_id'", "'seis'"],
+    ),
+    (
+        "nome vazio no Cadastro",
+        _replace(DRIVERS_REGISTRY, "11,Erick", "11,"),
+        "/load/2026/drivers",
+        [f"{DRIVERS_REGISTRY}, linha 12: coluna 'driver_name' vazia."],
     ),
     (
         "scores.csv ausente",
@@ -156,3 +202,20 @@ def test_chance_de_titulo_volta_ao_normal_quando_o_calendario_e_corrigido(client
 
     replace_in_file(data_dir / CALENDAR, "mexico,corrida,", "mexico,race,")
     assert client.get(PREDICTION).status_code == 200
+
+
+def test_erro_no_cadastro_nao_afeta_endpoints_que_nao_dependem_dele(client, data_dir):
+    replace_in_file(data_dir / DRIVERS_REGISTRY, "11,Erick", "10,Erick")
+    assert client.get("/load/2026/drivers").status_code == 500
+    assert client.get("/load/2026/races").status_code == 200
+    assert client.get("/load/2026/teams").status_code == 200
+    assert client.get("/load/2025/drivers").status_code == 200
+    assert client.get("/load/2025/standings/drivers").status_code == 200
+
+
+def test_api_volta_ao_normal_quando_o_cadastro_e_corrigido(client, data_dir):
+    replace_in_file(data_dir / JAPAO, "3,Yohan,", "3,Mateus,")
+    assert client.get("/load/2026/standings/drivers").status_code == 500
+
+    replace_in_file(data_dir / DRIVERS_REGISTRY, "11,Erick", "11,Erick\n12,Mateus")
+    assert client.get("/load/2026/standings/drivers").status_code == 200

@@ -104,7 +104,7 @@ ruff check .
 pytest
 ```
 
-Os testes rodam sobre uma cópia de `files/` em uma pasta temporária, então podem alterar ou quebrar CSVs sem tocar nos dados reais. Eles cobrem os endpoints, a consistência dos dados (IDs, pontos, superlicença), as regras de 2026 (IDs reaproveitados de 2025, equipe atual do piloto, recarga do cache) e as mensagens de erro para CSVs inválidos.
+Os testes rodam sobre uma cópia de `files/` em uma pasta temporária, então podem alterar ou quebrar CSVs sem tocar nos dados reais. Eles cobrem os endpoints, a consistência dos dados (IDs, pontos, superlicença), as regras de 2026 (IDs do Cadastro iguais aos de 2025, equipe atual do piloto, recarga do cache) e as mensagens de erro para CSVs inválidos.
 
 Toda rota da API entra sozinha nos testes de resposta. Uma rota nova também precisa aparecer na tabela de "Endpoints Disponíveis" e na lista `HEALTH_URLS` de `deploy/publicar.sh`, senão os testes falham.
 
@@ -114,7 +114,7 @@ Um dos testes exige que todo local de arquivo em `files/2026/` esteja no `LOCATI
 
 Os dados são lidos dos CSVs em `files/` e guardados em cache. O cache é invalidado sozinho sempre que um CSV é adicionado, editado ou removido, então **não é preciso reiniciar o servidor** para ver os dados novos.
 
-Isso vale para qualquer arquivo em `files/` (2025, 2026 e `super_license`). Mudanças no código Python (`main.py` ou `scripts/`) ainda exigem reiniciar o servidor, ou usar `--reload`.
+Isso vale para qualquer arquivo em `files/` (2025, 2026, `super_license` e o Cadastro). Mudanças no código Python (`main.py` ou `scripts/`) ainda exigem reiniciar o servidor, ou usar `--reload`.
 
 Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor inválido), os endpoints que dependem dele retornam HTTP 500 com a causa em `detail`, indicando o arquivo e a linha a corrigir. Por exemplo:
 
@@ -144,13 +144,21 @@ Se algum CSV estiver com problema (arquivo ausente, coluna faltando, valor invá
 
    A leitura para na primeira linha em branco, na que começa com `,,,,` ou na que começa com `Tempo,`. Tudo que vier depois disso é ignorado.
 
-3. Pronto. Corridas, resultados, pilotos e equipes de 2026 são derivados da pasta `files/2026/`. Se o export vier com o nome `Pessoa` (placeholder do site) ou vazio no lugar do piloto, troque pelo nome real antes de salvar. Caso contrário, os endpoints de 2026 que dependem de pilotos retornam erro indicando o arquivo e a linha a corrigir.
+3. Confira se todo piloto e toda equipe do CSV estão no Cadastro (`files/drivers.csv`, colunas `driver_id,driver_name`, e `files/teams.csv`, colunas `team_id,team_name`). O Cadastro vale para todas as temporadas a partir de 2026 e é de lá que saem o ID e o nome que a API devolve. Para cadastrar um piloto ou equipe novos, acrescente uma linha com o próximo ID livre e o nome escrito exatamente como nas colunas `Piloto` e `Equipe` do CSV (ex.: `12,Zeca`). Não troque o ID de quem já está cadastrado, porque os resultados e as punições guardados apontam para ele. Um nome fora do Cadastro faz os endpoints de 2026 que dependem dele retornarem erro indicando o arquivo e a linha, por exemplo:
+
+   ```json
+   {"detail": "2026/japao_race_20260323.csv, linha 4: coluna 'Piloto' com valor 'Mateus' (esperado um piloto do Cadastro)."}
+   ```
+
+   Um ID ou nome repetido no Cadastro, uma coluna faltando ou um ID que não é inteiro também viram erro com o arquivo e a linha. A temporada 2025 não usa o Cadastro: continua lendo `files/2025/`, com os mesmos IDs.
+
+4. Pronto. Corridas, resultados, pilotos e equipes de 2026 são derivados da pasta `files/2026/` e do Cadastro. Se o export vier com o nome `Pessoa` (placeholder do site) ou vazio no lugar do piloto, troque pelo nome real antes de salvar. Caso contrário, os endpoints de 2026 que dependem de pilotos retornam erro indicando o arquivo e a linha a corrigir.
 
    A sessão precisa estar no Calendário (`files/2026/calendar.csv`, colunas `local,tipo,data`), com o mesmo `{local}` e o mesmo tipo do nome do arquivo. No Calendário, todo `local` precisa estar no `LOCATION_MAP`, para um nome digitado errado não virar uma Sessão pendente para sempre. A ligação é só por local e tipo: a data do arquivo de resultado prevalece sobre a data prevista do Calendário. Uma sessão fora do Calendário faz as rotas `/load/2026/prediction/drivers` e `/load/2026/prediction/teams` retornarem erro indicando o arquivo e a linha a adicionar.
 
    Se a corrida tiver punição de Superlicença, registre também em `files/super_license/punishments.csv` (colunas `season_year,driver_id,race_id,deduction_points,penalty_reason`).
 
-4. Faça o commit e o push na `main`. O GitHub Actions roda os testes e publica a corrida nova no servidor em cerca de 1 a 2 minutos. Os CSVs de produção vêm sempre do Git: não edite arquivos direto no servidor, porque cada publicação substitui a pasta `files/`.
+5. Faça o commit e o push na `main`. O GitHub Actions roda os testes e publica a corrida nova no servidor em cerca de 1 a 2 minutos. Os CSVs de produção vêm sempre do Git: não edite arquivos direto no servidor, porque cada publicação substitui a pasta `files/`.
 
 A pontuação de cada posição vem de `files/2026/scores.csv` (colunas `position`, `points`, `is_sprint`).
 
