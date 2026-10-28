@@ -182,14 +182,18 @@ O parâmetro `{season}` aceita os valores `2025` ou `2026`.
 **Superlicença (2026)**
 - Cada piloto começa com 12 pontos.
 - Cada punição em `files/super_license/punishments.csv` deduz pontos (`deduction_points`).
-- Status conforme os pontos restantes:
+- Status conforme os pontos restantes e a Suspensão:
 
-| Pontos restantes | Status |
+| Situação | Status |
 |---|---|
 | 9 a 12 | `Regular` |
 | 5 a 8 | `Atencao` |
 | 1 a 4 | `Alerta Critico` |
-| 0 ou menos | `Suspenso (Ban)` |
+| 0 ou menos, com Suspensão a cumprir | `Suspenso` |
+| 0 ou menos, Suspensão cumprida | `Suspensao cumprida` |
+
+- A Suspensão vem da última punição que deixou o saldo em 0 ou menos e fica cumprida quando há uma Corrida disputada depois da Sessão dessa punição (uma Sprint não cumpre). O saldo continua zerado depois de cumprida, então uma nova punição gera outra Suspensão e o status volta a `Suspenso`.
+- A Chance de título usa o mesmo cálculo: quem está `Suspenso` aqui fica fora da primeira Corrida pendente na simulação.
 
 **Chance de título (2026)**
 - O que falta disputar vem do Calendário (`files/2026/calendar.csv`): uma Sessão sem CSV de resultado é pendente, mesmo que a data já tenha passado.
@@ -231,7 +235,7 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
 ```json
 {
   "name": "Tiltados API",
-  "version": "v2.26.1026",
+  "version": "v2.26.1028",
   "seasons": [
     2025,
     2026
@@ -330,9 +334,9 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
     "team_id": 7,
     "team_name": "Visa Cash App Racing Bulls",
     "initial_points": 12,
-    "deducted_points": 4,
-    "remaining_points": 8,
-    "punishments_count": 2,
+    "deducted_points": 5,
+    "remaining_points": 7,
+    "punishments_count": 3,
     "status": "Atencao"
   },
   {
@@ -348,6 +352,8 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
   }
 ]
 ```
+
+Um piloto com o saldo em 0 ou menos aparece com `status` `Suspenso` (Suspensão a cumprir) ou `Suspensao cumprida`; nos dados atuais, nenhum piloto chegou a zerar a Superlicença.
 
 ### 6. Punições da Superlicença (2026)
 `GET /load/2026/punishments`

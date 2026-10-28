@@ -6,6 +6,7 @@ Este módulo calcula o saldo de pontos da Superlicença para cada piloto de 2026
 - Todos os pilotos iniciam com 12 pontos.
 - Cada infração registrada em punishments.csv deduz pontos da carteira.
 - Gera o saldo restante e o status disciplinar do piloto.
+- Decide quem tem Suspensão a cumprir: é o mesmo cálculo que a Chance de título usa.
 """
 
 import os
@@ -17,6 +18,7 @@ try:
     from .load_drivers import load_drivers
     from .load_teams import load_teams
     from .load_punishments import load_punishments
+    from .load_races import load_races
 except (ImportError, ValueError):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     if current_dir not in sys.path:
@@ -24,19 +26,49 @@ except (ImportError, ValueError):
     from load_drivers import load_drivers
     from load_teams import load_teams
     from load_punishments import load_punishments
+    from load_races import load_races
 
 INITIAL_SUPER_LICENSE_POINTS = 12
 
+SUSPENDED = "Suspenso"
+SUSPENSION_SERVED = "Suspensao cumprida"
 
-def _get_license_status(remaining_points):
-    """Retorna o status disciplinar do piloto com base nos pontos restantes."""
+
+def _get_license_status(remaining_points, suspension_pending):
+    """Retorna o status disciplinar do piloto com base nos pontos restantes e na Suspensão a cumprir."""
     if remaining_points <= 0:
-        return "Suspenso (Ban)"
+        return SUSPENDED if suspension_pending else SUSPENSION_SERVED
     if remaining_points <= 4:
         return "Alerta Critico"
     if remaining_points <= 8:
         return "Atencao"
     return "Regular"
+
+
+def _pending_suspensions(driver_ids, df_races, df_punishments, initial_points):
+    """
+    Indica, para cada piloto, se ele tem Suspensão a cumprir na próxima Corrida.
+
+    A Suspensão vem da última punição que deixou a Superlicença zerada (ou abaixo de zero)
+    e está cumprida se houve alguma Corrida disputada depois da Sessão dessa punição.
+    """
+    session_order = {race_id: i for i, race_id in enumerate(df_races["race_id"])}
+    race_orders = [i for i, is_sprint in enumerate(df_races["is_sprint"]) if not is_sprint]
+
+    punishments = df_punishments.assign(order=df_punishments["race_id"].map(session_order))
+    punishments = punishments.sort_values("order", kind="stable")
+
+    pending = []
+    for driver_id in driver_ids:
+        driver_punishments = punishments[punishments["driver_id"] == driver_id]
+        remaining = initial_points
+        zeroed_at = None
+        for deduction, order in zip(driver_punishments["deduction_points"], driver_punishments["order"]):
+            remaining -= deduction
+            if remaining <= 0:
+                zeroed_at = order
+        pending.append(zeroed_at is not None and not any(order > zeroed_at for order in race_orders))
+    return pending
 
 
 def calculate_super_license(
@@ -57,7 +89,9 @@ def calculate_super_license(
     - deducted_points: Total de pontos deduzidos por penalidades
     - remaining_points: Pontos restantes na superlicença
     - punishments_count: Quantidade de punições recebidas
-    - status: Status disciplinar (Regular, Atencao, Alerta Critico, Suspenso)
+    - status: Status disciplinar (Regular, Atencao, Alerta Critico, Suspenso, Suspensao cumprida).
+      `Suspenso` é a Suspensão a cumprir; `Suspensao cumprida`, o saldo zerado depois de uma
+      Corrida disputada após a punição que zerou a Superlicença.
 
     Args:
         initial_points (int): Pontos concedidos a cada piloto no início da temporada.
@@ -69,11 +103,16 @@ def calculate_super_license(
         pd.DataFrame: Tabela de controle da Superlicença.
 
     Raises:
-        DataError: Se os dados de 2026 ou o arquivo de punições forem inválidos.
+        DataError: Se os dados de 2026 ou o arquivo de punições forem inválidos, ou se
+                   uma punição apontar para piloto ou Sessão inexistente em 2026.
     """
     df_drivers = load_drivers(base_path=base_path_2026, base_path_2025=base_path_2025)
     df_teams = load_teams(base_path=base_path_2026, base_path_2025=base_path_2025)
-    df_punishments = load_punishments(base_path=base_path_sl, season_year=2026)
+    df_races = load_races(base_path=base_path_2026, base_path_2025=base_path_2025)
+    df_punishments = load_punishments(
+        base_path=base_path_sl, season_year=2026, enriched=True,
+        base_path_2026=base_path_2026, base_path_2025=base_path_2025,
+    )
 
     # 1. Totalizar deduções por piloto
     if not df_punishments.empty:
@@ -94,8 +133,12 @@ def calculate_super_license(
     # 3. Vincular dados de equipe
     df_sl = df_sl.merge(df_teams[["team_id", "team_name"]], on="team_id", how="left")
 
-    # 4. Determinar status disciplinar
-    df_sl["status"] = df_sl["remaining_points"].apply(_get_license_status)
+    # 4. Determinar status disciplinar, separando a Suspensão a cumprir da cumprida
+    suspension_pending = _pending_suspensions(df_sl["driver_id"], df_races, df_punishments, int(initial_points))
+    df_sl["status"] = [
+        _get_license_status(remaining, pending)
+        for remaining, pending in zip(df_sl["remaining_points"], suspension_pending)
+    ]
 
     # 5. Ordenar por pilotos mais penalizados primeiro, depois por ID
     df_sl = df_sl.sort_values(

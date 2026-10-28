@@ -21,9 +21,8 @@ import pandas as pd
 # Suporta tanto importação relativa de pacote quanto execução direta de script
 try:
     from .calculate_standings import calculate_driver_standings, calculate_team_standings
-    from .calculate_super_license import INITIAL_SUPER_LICENSE_POINTS
+    from .calculate_super_license import SUSPENDED, calculate_super_license
     from .load_calendar import load_calendar
-    from .load_punishments import load_punishments
     from .load_races import load_races
     from .load_results import load_results
     from ..errors import read_csv, require_columns, to_int_column
@@ -33,9 +32,8 @@ except (ImportError, ValueError):
         if path not in sys.path:
             sys.path.insert(0, path)
     from calculate_standings import calculate_driver_standings, calculate_team_standings
-    from calculate_super_license import INITIAL_SUPER_LICENSE_POINTS
+    from calculate_super_license import SUSPENDED, calculate_super_license
     from load_calendar import load_calendar
-    from load_punishments import load_punishments
     from load_races import load_races
     from load_results import load_results
     from errors import read_csv, require_columns, to_int_column
@@ -78,32 +76,6 @@ def _title_status(points, max_points, has_pending, positions):
         else:
             statuses.append("Na disputa")
     return statuses
-
-
-def _suspended_drivers(driver_ids, df_races, df_punishments):
-    """
-    Indica, para cada piloto, se ele tem Suspensão a cumprir na próxima Corrida.
-
-    A Suspensão vem da última punição que deixou a Superlicença zerada (ou abaixo de zero)
-    e está cumprida se houve alguma Corrida disputada depois da Sessão dessa punição.
-    """
-    session_order = {race_id: i for i, race_id in enumerate(df_races["race_id"])}
-    race_orders = [i for i, is_sprint in enumerate(df_races["is_sprint"]) if not is_sprint]
-
-    punishments = df_punishments.assign(order=df_punishments["race_id"].map(session_order))
-    punishments = punishments.sort_values("order", kind="stable")
-
-    suspended = []
-    for driver_id in driver_ids:
-        driver_punishments = punishments[punishments["driver_id"] == driver_id]
-        remaining = INITIAL_SUPER_LICENSE_POINTS
-        zeroed_at = None
-        for deduction, order in zip(driver_punishments["deduction_points"], driver_punishments["order"]):
-            remaining -= deduction
-            if remaining <= 0:
-                zeroed_at = order
-        suspended.append(zeroed_at is not None and not any(order > zeroed_at for order in race_orders))
-    return np.array(suspended, dtype=bool)
 
 
 def _simulate_pending_sessions(histories, presence, suspended, pending, tables, rng, n_simulations):
@@ -568,11 +540,12 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
     seed_data = pd.util.hash_pandas_object(results, index=False).to_numpy().tobytes() + repr(pending).encode()
     rng = np.random.default_rng(zlib.crc32(seed_data))
 
-    df_punishments = load_punishments(
-        base_path=base_path_sl, season_year=2026, enriched=True,
-        base_path_2026=base_path, base_path_2025=base_path_2025,
+    # Suspensão a cumprir: o mesmo cálculo da rota da Superlicença
+    super_license = calculate_super_license(
+        base_path_sl=base_path_sl, base_path_2026=base_path, base_path_2025=base_path_2025,
     )
-    suspended = _suspended_drivers(standings["driver_id"], df_races, df_punishments)
+    suspended_ids = super_license.loc[super_license["status"] == SUSPENDED, "driver_id"]
+    suspended = standings["driver_id"].isin(suspended_ids).to_numpy()
 
     sim_points, sim_wins, sim_podiums = _simulate_pending_sessions(
         histories, presence, suspended, pending, tables, rng, n_simulations
