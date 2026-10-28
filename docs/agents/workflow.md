@@ -30,8 +30,8 @@ Confira os quatro itens e registre o resultado num comentário no PR (`gh pr com
 
 ## Merge
 
-- **Tudo conferido:** `gh pr merge <pr> --rebase --delete-branch`. Cada commit do branch entra na `main` como está, então cada um precisa estar no padrão e fazer sentido sozinho; correções da revisão entram como commits próprios (`fix(...)`, `docs(...)`), não como "ajustes da revisão". Depois, no checkout principal: `git switch main && git pull --ff-only`, e `git worktree remove` do worktree, se houver.
-- **Branch desatualizado** (outro PR entrou antes): `gh pr update-branch <pr>`, esperar o CI de novo e só então mergear.
+- **Tudo conferido:** `gh pr merge <pr> --rebase --delete-branch`. Cada commit do branch entra na `main` como está, então cada um precisa estar no padrão e fazer sentido sozinho; correções da revisão entram como commits próprios (`fix(...)`, `docs(...)`), não como "ajustes da revisão". Depois, no checkout principal: `git switch main && git pull --ff-only`, `git worktree remove` do worktree, se houver, e `git branch -D <branch>` (o rebase dá SHAs novos aos commits, então `-d` não reconhece o branch como mergeado).
+- **Branch desatualizado** (outro PR entrou antes): `gh pr update-branch <pr> --rebase`, esperar o CI de novo e só então mergear. Sem `--rebase`, o GitHub põe um merge commit no branch, e ele iria para a `main`.
 - **Item falhou:** um comentário no PR por achado, e o PR volta ao implementador, que corrige no mesmo branch.
 - **Dúvida que só o usuário resolve:** o PR espera, e a sessão pergunta ao usuário.
 
