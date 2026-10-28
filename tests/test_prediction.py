@@ -11,6 +11,10 @@ TEAM = "Red Bull"
 # Locais do Cadastro de Sessões usados nas temporadas sintéticas
 PLAYED = ["australia", "china", "japao", "bahrein", "arabia_saudita", "miami"]
 PENDING = ["mexico", "brasil", "las_vegas", "catar", "abu_dhabi"]
+# Equipes de 2025, com IDs fixos: Ferrari (2) < McLaren (4)
+FERRARI = "Scuderia Ferrari HP"
+MCLAREN = "McLaren F1 Team"
+SAUBER = "Stake F1 Team Kick Sauber"
 
 DRIVER_FIELDS = {
     "position", "driver_id", "driver_name", "team_id", "team_name", "points",
@@ -204,7 +208,7 @@ def test_empate_exato_nos_pontos_maximos_mantem_na_disputa(client, data_dir):
     assert rows["Bia"]["max_points"] == rows["Ana"]["points"] == 43
     assert rows["Bia"]["status"] == "Na disputa"
     assert rows["Bia"]["probability_reason"] == (
-        "Só alcança Ana vencendo a única Sessão pendente, e ainda dependeria do desempate (vitórias, depois pódios)."
+        "Só alcança Ana vencendo a única Sessão pendente, e ainda dependeria do desempate."
     )
 
 
@@ -214,7 +218,7 @@ def test_motivo_do_empate_exato_nos_pontos_maximos_com_varias_sessoes_pendentes(
     rows = by_name(client.get(DRIVERS).json())
 
     assert rows["Bia"]["probability_reason"] == (
-        "Só alcança Ana vencendo as 2 Sessões pendentes, e ainda dependeria do desempate (vitórias, depois pódios)."
+        "Só alcança Ana vencendo as 2 Sessões pendentes, e ainda dependeria do desempate."
     )
 
 
@@ -524,7 +528,7 @@ def test_motivo_da_equipe_com_empate_exato_nos_pontos_maximos(client, data_dir):
     assert rows["Williams"]["max_points"] == rows["Ferrari"]["points"] == 43
     assert rows["Williams"]["probability_reason"] == (
         "Só alcança a Ferrari fazendo 1º e 2º na única Sessão pendente, "
-        "e ainda dependeria do desempate (vitórias, depois pódios)."
+        "e ainda dependeria do desempate."
     )
 
 
@@ -536,7 +540,7 @@ def test_motivo_da_equipe_com_um_unico_piloto_e_empate_exato_nos_pontos_maximos(
 
     assert rows["Williams"]["max_points"] == rows["Ferrari"]["points"] == 25
     assert rows["Williams"]["probability_reason"] == (
-        "Só alcança a Ferrari vencendo a única Sessão pendente, e ainda dependeria do desempate (vitórias, depois pódios)."
+        "Só alcança a Ferrari vencendo a única Sessão pendente, e ainda dependeria do desempate."
     )
 
 
@@ -765,6 +769,99 @@ def test_campeao_e_eliminado_nao_recebem_frases_extras(client, data_dir):
     assert rows["Caio"]["probability_reason"] == (
         "Mesmo vencendo a única Sessão pendente, chega a no máximo 70 pontos, abaixo dos 100 de Ana."
     )
+
+
+def test_titulo_empatado_ate_os_podios_vai_para_quem_tem_mais_segundos_lugares_em_corridas(client, data_dir):
+    # Austrália (Corrida): Mike 2º (18), Gabriel 3º (15), sem ninguém em 1º. Sprint da China: Gabriel 1º (8),
+    # Mike 2º (7). Nas 2 Sprints pendentes cada um repete a sua única posição em Sprints: Gabriel +8, Mike +7.
+    # Fim: Mike 18 + 7 + 14 = 39 e Gabriel 15 + 8 + 16 = 39, sem vitórias e com 4 pódios cada, em toda
+    # simulação. Mike tem um 2º em Corridas e Gabriel nenhum; pela ordem do ID, seria o Gabriel (2 < 9).
+    reset_2026_season(data_dir)
+    write_session(data_dir, "australia_race_20260302.csv", [(2, "Mike", SAUBER, 2), (3, "Gabriel", FERRARI, 3)])
+    write_session(data_dir, "china_sprint_20260309.csv", [(1, "Gabriel", FERRARI, 1), (2, "Mike", SAUBER, 2)])
+    write_calendar(data_dir, [("australia", "race", "2026-03-02"), ("china", "sprint", "2026-03-09"),
+                              ("miami", "sprint", "2026-04-27"), ("canada", "sprint", "2026-05-18")])
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Mike"]["expected_points"] == rows["Gabriel"]["expected_points"] == 39
+    assert rows["Mike"]["championship_probability"] == 100
+    assert rows["Gabriel"]["championship_probability"] == 0
+
+
+def test_titulo_empatado_na_contagem_vai_para_quem_conseguiu_primeiro_o_melhor_resultado(client, data_dir):
+    # Austrália: Mike 2º (18), Gabriel 3º (15). Japão: Gabriel 2º, Mike 3º. Os dois somam 33, com 2 pódios,
+    # um 2º e um 3º em Corridas. Os dois zeram a Superlicença no Japão e ficam fora da única Corrida pendente,
+    # então terminam assim em toda simulação. Mike fez o 2º primeiro; pela ordem do ID, seria o Gabriel.
+    reset_2026_season(data_dir)
+    write_session(data_dir, "australia_race_20260302.csv", [(2, "Mike", SAUBER, 2), (3, "Gabriel", FERRARI, 3)])
+    write_session(data_dir, "japao_race_20260323.csv", [(2, "Gabriel", FERRARI, 2), (3, "Mike", SAUBER, 3)])
+    write_calendar(data_dir, [("australia", "race", "2026-03-02"), ("japao", "race", "2026-03-23"),
+                              ("mexico", "race", "2026-10-26")])
+    punish(client, data_dir, [("Mike", "GP do Japão", 12), ("Gabriel", "GP do Japão", 12)])
+    rows = by_name(client.get(DRIVERS).json())
+
+    assert rows["Mike"]["expected_points"] == rows["Gabriel"]["expected_points"] == 33
+    assert rows["Mike"]["championship_probability"] == 100
+    assert rows["Gabriel"]["championship_probability"] == 0
+
+
+# Sprint da China disputada e Sprint de Miami pendente: Douglas (Sauber) 1º, Yohan (McLaren) 2º, Bryan
+# (Ferrari) 3º, Paulo (Ferrari) 4º e Adriano (McLaren) 5º. Na Sprint pendente cada um repete a sua única
+# posição em Sprints: McLaren 7 + 4 = 11 e Ferrari 6 + 5 = 11, com 1 pódio cada, em toda simulação.
+CONSTRUCTORS_SPRINT = [(1, "Douglas", SAUBER, 1), (2, "Yohan", MCLAREN, 2), (3, "Bryan", FERRARI, 3),
+                       (4, "Paulo", FERRARI, 4), (5, "Adriano", MCLAREN, 5)]
+
+
+def constructors_season(data_dir, australia, japao):
+    """Duas Corridas disputadas (ordens de chegada sem ninguém em 1º), a Sprint da China e a de Miami pendente."""
+    reset_2026_season(data_dir)
+    for file_name, finishing_order in (("australia_race_20260302.csv", australia),
+                                       ("japao_race_20260323.csv", japao)):
+        write_session(data_dir, file_name, [(pos, driver, team, pos)
+                                            for pos, (driver, team) in enumerate(finishing_order, start=2)])
+    write_session(data_dir, "china_sprint_20260309.csv", CONSTRUCTORS_SPRINT)
+    write_calendar(data_dir, [("australia", "race", "2026-03-02"), ("china", "sprint", "2026-03-09"),
+                              ("japao", "race", "2026-03-23"), ("miami", "sprint", "2026-04-27")])
+
+
+def test_titulo_de_construtores_empatado_ate_os_podios_vai_para_quem_tem_mais_segundos_lugares(client, data_dir):
+    # Austrália: Yohan 2º, Bryan 3º, Paulo 4º, Adriano 5º, Douglas 6º: McLaren 18 + 10 = 28, Ferrari 15 + 12 = 27.
+    # Japão: Yohan 2º, Bryan 3º, Paulo 4º, Douglas 5º, Adriano 6º: McLaren 18 + 8 = 26, Ferrari 27.
+    # Com as duas Sprints (11 cada), McLaren 54 + 22 = 76 e Ferrari 54 + 22 = 76, sem vitórias e com 4 pódios
+    # cada. A McLaren tem dois 2ºs em Corridas e a Ferrari nenhum; pela ordem do ID, seria a Ferrari (2 < 4).
+    constructors_season(
+        data_dir,
+        australia=[("Yohan", MCLAREN), ("Bryan", FERRARI), ("Paulo", FERRARI), ("Adriano", MCLAREN),
+                   ("Douglas", SAUBER)],
+        japao=[("Yohan", MCLAREN), ("Bryan", FERRARI), ("Paulo", FERRARI), ("Douglas", SAUBER),
+               ("Adriano", MCLAREN)],
+    )
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows[MCLAREN]["expected_points"] == rows[FERRARI]["expected_points"] == 76
+    assert rows[MCLAREN]["championship_probability"] == 100
+    assert rows[FERRARI]["championship_probability"] == 0
+
+
+def test_titulo_de_construtores_empatado_na_contagem_vai_para_quem_conseguiu_primeiro_o_melhor_resultado(
+    client, data_dir
+):
+    # Austrália: Yohan (McLaren) 2º, Paulo (Ferrari) 3º, Bryan (Ferrari) 4º, Adriano (McLaren) 5º, Douglas 6º.
+    # Japão: Bryan 2º, Adriano 3º, Yohan 4º, Paulo 5º, Douglas 6º. Cada equipe soma 28 + 27 = 55, com 2 pódios
+    # e um 2º, um 3º, um 4º e um 5º em Corridas. Com as duas Sprints (11 cada), 77 a 77, com 4 pódios cada.
+    # A McLaren fez o 2º primeiro (Yohan, na Austrália); pela ordem do ID, seria a Ferrari.
+    constructors_season(
+        data_dir,
+        australia=[("Yohan", MCLAREN), ("Paulo", FERRARI), ("Bryan", FERRARI), ("Adriano", MCLAREN),
+                   ("Douglas", SAUBER)],
+        japao=[("Bryan", FERRARI), ("Adriano", MCLAREN), ("Yohan", MCLAREN), ("Paulo", FERRARI),
+               ("Douglas", SAUBER)],
+    )
+    rows = by_name(client.get(TEAMS).json(), key="team_name")
+
+    assert rows[MCLAREN]["expected_points"] == rows[FERRARI]["expected_points"] == 77
+    assert rows[MCLAREN]["championship_probability"] == 100
+    assert rows[FERRARI]["championship_probability"] == 0
 
 
 def test_equipe_campea_ou_eliminada_nao_cita_piloto_suspenso(client, data_dir):

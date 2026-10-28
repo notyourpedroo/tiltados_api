@@ -61,69 +61,117 @@ def _calculate_base_points(base_path="./files/2026", base_path_2025="./files/202
     return merged
 
 
-def count_race_finishes(race_results, ids, by):
+class RaceFinishes:
+    """
+    Posições de cada piloto ou equipe em Corridas, para o desempate da classificação.
+
+    Os arrays podem ter eixos à frente (`shape`), um por simulação na Chance de título;
+    na classificação, não têm nenhum:
+    - finishes[..., i, k]: quantas vezes o competidor i terminou em (k + 2)º em Corridas;
+    - best[..., i]: o melhor resultado dele em Corridas (infinito sem Corridas);
+    - first_best[..., i]: a ordem da primeira Sessão em que ele conseguiu esse melhor
+      resultado (infinito sem Corridas).
+
+    É o único lugar que soma Corridas para o desempate: a classificação soma as disputadas
+    (`count_race_finishes`) e a Chance de título soma, em todas as simulações de uma vez,
+    as Corridas pendentes simuladas. Não lança DataError.
+    """
+
+    def __init__(self, n_competitors, worst_position, shape=()):
+        self.finishes = np.zeros((*shape, n_competitors, max(worst_position - 1, 0)), dtype=int)
+        self.best = np.full((*shape, n_competitors), np.inf)
+        self.first_best = np.full((*shape, n_competitors), np.inf)
+
+    def repeat(self, n_simulations):
+        """Cópia com um eixo de simulações à frente, cada uma começando destas posições."""
+        copy = RaceFinishes(0, 1)
+        for name in ("finishes", "best", "first_best"):
+            value = getattr(self, name)
+            setattr(copy, name, np.repeat(value[np.newaxis], n_simulations, axis=0))
+        return copy
+
+    def add_race(self, positions, owner, order):
+        """
+        Soma uma Corrida, que precisa vir depois de todas as já somadas.
+
+        `positions[..., j]` é a posição do resultado j (não finita para quem não correu), com os
+        mesmos eixos à frente da contagem, e `owner[j]` é o competidor dono dele. Numa equipe,
+        os resultados de todos os seus pilotos somam. `order` é a ordem cronológica da Sessão.
+        """
+        positions = np.asarray(positions, dtype=float)
+        owner = np.asarray(owner, dtype=int)
+        n_competitors, n_counted = self.finishes.shape[-2:]
+        batch = positions.shape[:-1]
+        n_batch = int(np.prod(batch, dtype=int))
+
+        # Contagem dos 2ºs lugares em diante, por um índice linear (simulação, competidor, posição)
+        flat = positions.reshape(n_batch, -1)
+        counted = np.isfinite(flat) & (flat >= 2)
+        batch_index = np.broadcast_to(np.arange(n_batch)[:, np.newaxis], flat.shape)[counted]
+        owner_index = np.broadcast_to(owner, flat.shape)[counted]
+        linear = (batch_index * n_competitors + owner_index) * n_counted + flat[counted].astype(int) - 2
+        self.finishes += np.bincount(linear, minlength=self.finishes.size).reshape(self.finishes.shape)
+
+        # Melhor resultado de cada competidor nesta Corrida; só vale se for melhor que o de antes
+        race_best = np.full((*batch, n_competitors), np.inf)
+        for i in np.unique(owner):
+            race_best[..., i] = positions[..., owner == i].min(axis=-1)
+        improved = race_best < self.best
+        self.best = np.where(improved, race_best, self.best)
+        self.first_best = np.where(improved, order, self.first_best)
+
+
+def count_race_finishes(race_results, ids, by, worst_position=1):
     """
     Conta as posições de cada piloto ou equipe em Corridas, para o desempate da classificação.
 
     `race_results` tem uma linha por resultado em Corridas (sem Sprints), com as colunas
     `by` (driver_id ou team_id), driver_final_position e session_order (ordem cronológica
-    da Sessão). Numa equipe, os resultados de todos os seus pilotos somam.
+    da Sessão). Numa equipe, os resultados de todos os seus pilotos somam. A contagem comporta
+    até a pior posição registrada ou `worst_position`, a que for maior.
 
-    Retorna a tupla (finishes, first_best), alinhada a `ids`:
-    - finishes: matriz com quantas vezes cada um terminou em 2º, 3º... em Corridas
-      (coluna 0 = 2º lugar, até a pior posição registrada);
-    - first_best: session_order da primeira Corrida em que conseguiu o seu melhor resultado
-      (infinito para quem não disputou Corridas).
-
-    Não lança DataError: recebe dados já validados pelos loaders.
+    Retorna um RaceFinishes alinhado a `ids`. Não lança DataError: recebe dados já validados
+    pelos loaders.
     """
-    ids = list(ids)
     row_of = {competitor: i for i, competitor in enumerate(ids)}
+    race_results = race_results[race_results[by].isin(list(row_of))]
     positions = race_results["driver_final_position"].to_numpy(dtype=int)
-    worst = int(positions.max()) if len(positions) else 1
+    worst = max(int(positions.max()) if len(positions) else 1, worst_position)
 
-    finishes = np.zeros((len(ids), max(worst - 1, 0)), dtype=int)
-    first_best = np.full(len(ids), np.inf)
-    best = np.full(len(ids), np.inf)
-
-    for competitor, position, order in zip(race_results[by], positions, race_results["session_order"]):
-        i = row_of.get(competitor)
-        if i is None:
-            continue
-        if position >= 2:
-            finishes[i, position - 2] += 1
-        if position < best[i] or (position == best[i] and order < first_best[i]):
-            best[i], first_best[i] = position, order
-
-    return finishes, first_best
+    tally = RaceFinishes(len(row_of), worst)
+    for order, race in race_results.groupby("session_order", sort=True):
+        tally.add_race(race["driver_final_position"].to_numpy(), race[by].map(row_of).to_numpy(), order)
+    return tally
 
 
 def standings_order(points, wins, podiums, finishes, first_best, ids):
     """
     Índices dos pilotos ou equipes na ordem da classificação, pela regra completa de desempate.
 
-    Recebe arrays alinhados (um item por piloto ou equipe): pontos, vitórias em Corridas, pódios,
-    `finishes` e `first_best` de `count_race_finishes` e os IDs. A ordem é: mais pontos; mais
-    vitórias; mais pódios; mais 2ºs em Corridas, depois mais 3ºs, e assim por diante; quem
-    conseguiu primeiro o seu melhor resultado em Corridas; e, por fim, o menor ID.
+    Recebe arrays alinhados (um item por piloto ou equipe no último eixo): pontos, vitórias em
+    Corridas, pódios, `finishes` e `first_best` de um RaceFinishes e os IDs. A ordem é: mais
+    pontos; mais vitórias; mais pódios; mais 2ºs em Corridas, depois mais 3ºs, e assim por
+    diante; quem conseguiu primeiro o seu melhor resultado em Corridas; e, por fim, o menor ID.
+    Com eixos à frente (um por simulação), ordena cada simulação separadamente.
 
     Não lança DataError.
     """
+    points = np.asarray(points)
     finishes = np.asarray(finishes)
-    by_position = [-finishes[:, k] for k in reversed(range(finishes.shape[1]))]
+    by_position = [-finishes[..., k] for k in reversed(range(finishes.shape[-1]))]
     # np.lexsort usa a última chave como a principal
-    keys = [np.asarray(ids), np.asarray(first_best)] + by_position + [
-        -np.asarray(podiums), -np.asarray(wins), -np.asarray(points)
+    keys = [np.broadcast_to(ids, points.shape), np.asarray(first_best)] + by_position + [
+        -np.asarray(podiums), -np.asarray(wins), -points
     ]
-    return np.lexsort(keys)
+    return np.lexsort(keys, axis=-1)
 
 
 def _sort_standings(stats, merged, by):
     """Ordena a classificação (`stats`, uma linha por `by`) pela regra de desempate e numera as posições."""
-    finishes, first_best = count_race_finishes(merged[~merged["is_sprint"]], stats[by], by)
+    tally = count_race_finishes(merged[~merged["is_sprint"]], stats[by].tolist(), by)
     order = standings_order(
         stats["points"].to_numpy(), stats["wins"].to_numpy(), stats["podiums"].to_numpy(),
-        finishes, first_best, stats[by].to_numpy()
+        tally.finishes, tally.first_best, stats[by].to_numpy()
     )
     stats = stats.iloc[order].reset_index(drop=True)
     stats["position"] = range(1, len(stats) + 1)

@@ -6,7 +6,8 @@ Este módulo combina a classificação atual com as Sessões pendentes do Calend
 - Situação matemática: Pontos máximos e status (Campeao, Na disputa, Eliminado).
 - Simulação (Monte Carlo): cada Sessão pendente é sorteada a partir das posições
   que cada piloto já fez em 2026, e a Chance de título é a porcentagem de
-  simulações em que o piloto termina como Campeão.
+  simulações em que o piloto termina como Campeão, pelo mesmo desempate da
+  classificação (calculate_standings.standings_order).
 - Motivo da Chance de título: a frase que explica a situação de cada piloto ou
   equipe, montada por templates a partir dos mesmos dados.
 """
@@ -20,7 +21,9 @@ import pandas as pd
 
 # Suporta tanto importação relativa de pacote quanto execução direta de script
 try:
-    from .calculate_standings import calculate_driver_standings, calculate_team_standings
+    from .calculate_standings import (
+        calculate_driver_standings, calculate_team_standings, count_race_finishes, standings_order,
+    )
     from .calculate_super_license import SUSPENDED, calculate_super_license
     from .load_calendar import load_calendar
     from .load_races import load_races
@@ -31,7 +34,9 @@ except (ImportError, ValueError):
     for path in (current_dir, os.path.dirname(current_dir)):
         if path not in sys.path:
             sys.path.insert(0, path)
-    from calculate_standings import calculate_driver_standings, calculate_team_standings
+    from calculate_standings import (
+        calculate_driver_standings, calculate_team_standings, count_race_finishes, standings_order,
+    )
     from calculate_super_license import SUSPENDED, calculate_super_license
     from load_calendar import load_calendar
     from load_races import load_races
@@ -81,7 +86,9 @@ def _title_status(points, max_points, has_pending, positions):
 def _simulate_pending_sessions(histories, presence, suspended, pending, tables, rng, n_simulations):
     """
     Simula as Sessões pendentes e devolve, por simulação (linhas) e piloto (colunas),
-    os pontos, as vitórias em Corridas e os pódios conquistados.
+    os pontos, as vitórias em Corridas e os pódios conquistados, além da lista
+    (índice da Sessão em `pending`, posições) de cada Corrida pendente, com posição
+    infinita para quem não correu.
 
     `histories[is_sprint][j]` são as posições que o piloto j sorteia nesse tipo de Sessão,
     `presence[j]` é a probabilidade de ele participar de cada Sessão pendente e `suspended[j]`
@@ -91,9 +98,10 @@ def _simulate_pending_sessions(histories, presence, suspended, pending, tables, 
     sim_points = np.zeros((n_simulations, n_drivers))
     sim_wins = np.zeros((n_simulations, n_drivers))
     sim_podiums = np.zeros((n_simulations, n_drivers))
+    sim_races = []
     suspension_pending = suspended.any()
 
-    for is_sprint in pending:
+    for index, is_sprint in enumerate(pending):
         # Cada participante sorteia uma das suas posições; quem não corre fica no fim (inf)
         draws = np.full((n_simulations, n_drivers), np.inf)
         for j, history in enumerate(histories[is_sprint]):
@@ -110,16 +118,34 @@ def _simulate_pending_sessions(histories, presence, suspended, pending, tables, 
         sim_points += np.where(racing, tables[is_sprint][ranks], 0)
         if not is_sprint:
             sim_wins += racing & (ranks == 1)
+            sim_races.append((index, np.where(racing, ranks, np.inf)))
         sim_podiums += racing & (ranks <= 3)
 
-    return sim_points, sim_wins, sim_podiums
+    return sim_points, sim_wins, sim_podiums, sim_races
 
 
-def _championship_probability(points, wins, podiums, rng):
-    """Porcentagem de simulações em que cada coluna é campeã (pontos, vitórias, pódios, sorteio)."""
-    keys = (points * 1000 + wins) * 1000 + podiums + rng.random(points.shape)
-    champions = keys.argmax(axis=1)
-    counts = np.bincount(champions, minlength=points.shape[1])
+def _final_race_finishes(season, ids, by, owner):
+    """
+    Posições em Corridas de cada competidor (pilotos ou equipes, alinhados a `ids`) ao fim de
+    cada simulação: as das Corridas disputadas, contadas como na classificação, e as das
+    Corridas pendentes simuladas, que vêm depois delas na ordem do Calendário.
+    `owner[j]` é o competidor que recebe os resultados simulados do piloto j.
+    """
+    n_simulations = len(season["sim_points"])
+    worst = len(season["standings"])  # pior posição possível numa Corrida simulada
+    tally = count_race_finishes(season["race_results"], ids, by, worst_position=worst).repeat(n_simulations)
+    for index, positions in season["sim_races"]:
+        tally.add_race(positions, owner, season["n_played"] + index)
+    return tally
+
+
+def _championship_probability(points, wins, podiums, finishes, ids):
+    """
+    Porcentagem de simulações em que cada coluna é campeã, pelo mesmo desempate da
+    classificação (`finishes` é o RaceFinishes de `_final_race_finishes`).
+    """
+    order = standings_order(points, wins, podiums, finishes.finishes, finishes.first_best, ids)
+    counts = np.bincount(order[:, 0], minlength=points.shape[1])
     return counts / points.shape[0] * 100
 
 
@@ -227,7 +253,7 @@ def _exact_tie_reason(i, names, n_pending, is_team, team_drivers):
     else:
         needs = f"vencendo {sessions}"
     leader = names[0] if not is_team else f"a {names[0]}"
-    return f"Só alcança {leader} {needs}, e ainda dependeria do desempate (vitórias, depois pódios)."
+    return f"Só alcança {leader} {needs}, e ainda dependeria do desempate."
 
 
 def _in_pending_sessions(n_pending):
@@ -498,10 +524,13 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
     Simula as Sessões pendentes para os pilotos da classificação atual.
 
     Retorna um dict com a classificação de pilotos (`standings`), os tipos das Sessões
-    pendentes (`pending`), as tabelas de pontos (`tables`), o gerador aleatório já
-    usado (`rng`), por piloto (na ordem da classificação) as posições que ele fez em cada tipo
-    de Sessão em 2026 (`positions[is_sprint][j]`), as contagens que formam a presença (`presence_counts[j]` = (disputadas, da temporada, "Corridas" ou "Sessões"))
-    e a Suspensão pendente (`suspended`), e, por simulação e piloto, `sim_points`, `sim_wins` e `sim_podiums`.
+    pendentes (`pending`), as tabelas de pontos (`tables`), por piloto (na ordem da classificação)
+    as posições que ele fez em cada tipo de Sessão em 2026 (`positions[is_sprint][j]`), as contagens
+    que formam a presença (`presence_counts[j]` = (disputadas, da temporada, "Corridas" ou "Sessões"))
+    e a Suspensão pendente (`suspended`), e, por simulação e piloto, `sim_points`, `sim_wins` e
+    `sim_podiums`. Para o desempate, traz também os resultados das Corridas disputadas com a ordem
+    cronológica da Sessão (`race_results`), a quantidade de Sessões disputadas (`n_played`, a ordem
+    da 1ª Sessão pendente) e as posições de cada Corrida pendente simulada (`sim_races`).
     """
     calendar = load_calendar(base_path=base_path)
     standings = calculate_driver_standings(base_path=base_path, base_path_2025=base_path_2025)
@@ -547,20 +576,26 @@ def _simulate_season(base_path, base_path_2025, base_path_sl, n_simulations):
     suspended_ids = super_license.loc[super_license["status"] == SUSPENDED, "driver_id"]
     suspended = standings["driver_id"].isin(suspended_ids).to_numpy()
 
-    sim_points, sim_wins, sim_podiums = _simulate_pending_sessions(
+    sim_points, sim_wins, sim_podiums, sim_races = _simulate_pending_sessions(
         histories, presence, suspended, pending, tables, rng, n_simulations
     )
+
+    # Corridas disputadas com a ordem cronológica da Sessão (load_races já vem em ordem), para o desempate
+    session_order = df_races[["race_id"]].assign(session_order=range(len(df_races)))
+    race_results = results.loc[~results["is_sprint"]].merge(session_order, on="race_id")
     return {
         "standings": standings,
         "pending": pending,
         "tables": tables,
-        "rng": rng,
         "positions": positions,
         "presence_counts": presence_counts,
         "suspended": suspended,
         "sim_points": sim_points,
         "sim_wins": sim_wins,
         "sim_podiums": sim_podiums,
+        "race_results": race_results,
+        "n_played": len(df_races),
+        "sim_races": sim_races,
     }
 
 
@@ -590,7 +625,9 @@ def _driver_prediction(season):
         df["points"].to_numpy(), df["max_points"].to_numpy(), bool(pending), df["position"].to_numpy()
     )
     expected_points = final_points.mean(axis=0)
-    probability = _championship_probability(final_points, final_wins, final_podiums, season["rng"])
+    driver_ids = standings["driver_id"].to_numpy()
+    finishes = _final_race_finishes(season, driver_ids.tolist(), "driver_id", owner=np.arange(len(standings)))
+    probability = _championship_probability(final_points, final_wins, final_podiums, finishes, driver_ids)
     df["probability_reason"] = _probability_reasons(
         df.assign(name=df["driver_name"], wins=standings["wins"], podiums=standings["podiums"],
                   probability=_displayed_probability(df["status"], probability),
@@ -650,7 +687,12 @@ def _team_prediction(season, team_standings):
         df["points"].to_numpy(), df["max_points"].to_numpy(), bool(pending), df["position"].to_numpy()
     )
     expected_points = final_points.mean(axis=0)
-    probability = _championship_probability(final_points, final_wins, final_podiums, season["rng"])
+    team_ids = team_standings["team_id"].to_numpy()
+    row_of = {team_id: i for i, team_id in enumerate(team_ids.tolist())}
+    finishes = _final_race_finishes(
+        season, list(row_of), "team_id", owner=np.array([row_of[team_id] for team_id in current_team.tolist()])
+    )
+    probability = _championship_probability(final_points, final_wins, final_podiums, finishes, team_ids)
     df["probability_reason"] = _probability_reasons(
         df.assign(name=df["team_name"], wins=team_standings["wins"], podiums=team_standings["podiums"],
                   probability=_displayed_probability(df["status"], probability),
