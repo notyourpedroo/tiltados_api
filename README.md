@@ -283,7 +283,7 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP da C
 ```json
 {
   "name": "Tiltados API",
-  "version": "v2.26.1028",
+  "version": "v2.26.1029",
   "seasons": [
     2025,
     2026
