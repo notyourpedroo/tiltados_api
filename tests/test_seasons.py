@@ -202,14 +202,17 @@ def test_punicao_de_2026_nao_conta_na_superlicenca_nem_na_suspensao_de_2099(clie
 
 def test_punicao_aponta_para_sessao_disputada_da_propria_temporada(client, data_dir):
     open_new_season_with_three_sessions(data_dir)
-    # O Japão (race_id 4) foi disputado em 2026, mas em 2099 ainda está pendente; a linha 9 é a 1ª acrescentada
+    # O Japão (race_id 4) foi disputado em 2026, mas em 2099 ainda está pendente; a linha acrescentada
+    # vem logo depois das que o punishments.csv já tem, que crescem a cada Corrida com punição
+    with open(data_dir / "super_license" / "punishments.csv", encoding="utf-8") as f:
+        line = len(f.readlines()) + 1
     add_punishments(data_dir, ["2099,7,4,2,Teste"])
 
     for resource in SESSION_ONLY_RESOURCES:
         response = client.get(f"/load/2099/{resource}")
         assert response.status_code == 500, resource
         assert response.json()["detail"] == (
-            "super_license/punishments.csv, linha 9: coluna 'race_id' com valor '4' "
+            f"super_license/punishments.csv, linha {line}: coluna 'race_id' com valor '4' "
             "(esperado uma Sessão disputada em 2099)."
         )
     for resource in SESSION_ONLY_RESOURCES:
