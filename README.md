@@ -275,7 +275,7 @@ Superlicença, punições e Chance de título (as quatro últimas rotas da tabel
 
 ## Exemplos de Uso e Respostas
 
-Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de Singapura).
+Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP da Cidade do México).
 
 ### 1. Informações da API
 `GET /`
@@ -326,11 +326,11 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
     "driver_name": "Matheus",
     "team_id": 7,
     "team_name": "Visa Cash App Racing Bulls",
-    "points": 385,
-    "wins": 10,
+    "points": 428,
+    "wins": 11,
     "sprint_wins": 2,
-    "podiums": 20,
-    "races": 22
+    "podiums": 22,
+    "races": 24
   },
   {
     "position": 2,
@@ -338,11 +338,11 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
     "driver_name": "Yohan",
     "team_id": 1,
     "team_name": "Red Bull",
-    "points": 289,
-    "wins": 4,
+    "points": 332,
+    "wins": 5,
     "sprint_wins": 3,
-    "podiums": 15,
-    "races": 22
+    "podiums": 17,
+    "races": 24
   }
 ]
 ```
@@ -356,17 +356,17 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
     "position": 1,
     "team_id": 7,
     "team_name": "Visa Cash App Racing Bulls",
-    "points": 560,
-    "wins": 10,
-    "podiums": 25
+    "points": 613,
+    "wins": 11,
+    "podiums": 27
   },
   {
     "position": 2,
     "team_id": 1,
     "team_name": "Red Bull",
-    "points": 443,
-    "wins": 4,
-    "podiums": 17
+    "points": 494,
+    "wins": 5,
+    "podiums": 19
   }
 ]
 ```
@@ -458,7 +458,7 @@ Cada punição precisa apontar para um `driver_id` com Sessão disputada na temp
 ### 7. Chance de Título dos Pilotos (2026)
 `GET /load/2026/prediction/drivers`
 
-Valores após o GP dos Estados Unidos, com 5 Corridas pendentes (os 3 primeiros da lista):
+Valores após o GP da Cidade do México, com 4 Corridas pendentes (os 3 primeiros da lista):
 
 ```json
 [
@@ -468,12 +468,12 @@ Valores após o GP dos Estados Unidos, com 5 Corridas pendentes (os 3 primeiros 
     "driver_name": "Matheus",
     "team_id": 7,
     "team_name": "Visa Cash App Racing Bulls",
-    "points": 403,
+    "points": 428,
     "max_points": 528,
     "status": "Na disputa",
     "championship_probability": 100.0,
-    "expected_points": 509.5,
-    "probability_reason": "Ainda não é Campeão pela matemática, mas nunca terminou abaixo do 6º em Corridas de 2026; repetindo isso nas 5 Sessões pendentes, Yohan tira no máximo 85 dos 89 pontos de vantagem."
+    "expected_points": 514.2,
+    "probability_reason": "Ainda não é Campeão pela matemática, mas nunca terminou abaixo do 6º em Corridas de 2026; repetindo isso nas 4 Sessões pendentes, Yohan tira no máximo 68 dos 96 pontos de vantagem."
   },
   {
     "position": 2,
@@ -481,12 +481,12 @@ Valores após o GP dos Estados Unidos, com 5 Corridas pendentes (os 3 primeiros 
     "driver_name": "Yohan",
     "team_id": 1,
     "team_name": "Red Bull",
-    "points": 314,
-    "max_points": 439,
+    "points": 332,
+    "max_points": 432,
     "status": "Na disputa",
     "championship_probability": 0.0,
-    "expected_points": 394.3,
-    "probability_reason": "Ainda está na disputa pela matemática, mas Matheus nunca terminou abaixo do 6º em Corridas de 2026; repetindo isso nas 5 Sessões pendentes, perde no máximo 85 pontos, menos que os 89 de vantagem."
+    "expected_points": 396.8,
+    "probability_reason": "Ainda está na disputa pela matemática, mas Matheus nunca terminou abaixo do 6º em Corridas de 2026; repetindo isso nas 4 Sessões pendentes, perde no máximo 68 pontos, menos que os 96 de vantagem."
   },
   {
     "position": 3,
@@ -494,12 +494,12 @@ Valores após o GP dos Estados Unidos, com 5 Corridas pendentes (os 3 primeiros 
     "driver_name": "Douglas",
     "team_id": 6,
     "team_name": "Mercedes-AMG Petronas",
-    "points": 223,
-    "max_points": 348,
+    "points": 238,
+    "max_points": 338,
     "status": "Eliminado",
     "championship_probability": 0.0,
-    "expected_points": 279.4,
-    "probability_reason": "Mesmo vencendo as 5 Sessões pendentes, chega a no máximo 348 pontos, abaixo dos 403 de Matheus."
+    "expected_points": 284.2,
+    "probability_reason": "Mesmo vencendo as 4 Sessões pendentes, chega a no máximo 338 pontos, abaixo dos 428 de Matheus."
   }
 ]
 ```
@@ -509,7 +509,7 @@ O `probability_reason` já explica por que Yohan, ainda `Na disputa` pela matem�
 ### 8. Chance de Título dos Construtores (2026)
 `GET /load/2026/prediction/teams`
 
-Valores após o GP dos Estados Unidos (os 2 primeiros da lista):
+Valores após o GP da Cidade do México (os 2 primeiros da lista):
 
 ```json
 [
@@ -517,28 +517,28 @@ Valores após o GP dos Estados Unidos (os 2 primeiros da lista):
     "position": 1,
     "team_id": 7,
     "team_name": "Visa Cash App Racing Bulls",
-    "points": 588,
-    "max_points": 803,
+    "points": 613,
+    "max_points": 785,
     "status": "Na disputa",
     "championship_probability": 100.0,
-    "expected_points": 740.8,
-    "probability_reason": "Ainda não é Campeã de Construtores pela matemática, mas é campeã em quase todas as 10.000 simulações: a Red Bull precisaria tirar 112 pontos em 5 Sessões pendentes."
+    "expected_points": 733.8,
+    "probability_reason": "Ainda não é Campeã de Construtores pela matemática, mas é campeã em quase todas as 10.000 simulações: a Red Bull precisaria tirar 119 pontos em 4 Sessões pendentes."
   },
   {
     "position": 2,
     "team_id": 1,
     "team_name": "Red Bull",
-    "points": 476,
-    "max_points": 691,
+    "points": 494,
+    "max_points": 666,
     "status": "Na disputa",
     "championship_probability": 0.0,
-    "expected_points": 595.8,
-    "probability_reason": "Ainda está na disputa pela matemática, mas quase nunca é campeã nas 10.000 simulações: precisaria tirar 112 pontos da Visa Cash App Racing Bulls em 5 Sessões pendentes."
+    "expected_points": 588.8,
+    "probability_reason": "Ainda está na disputa pela matemática, mas quase nunca é campeã nas 10.000 simulações: precisaria tirar 119 pontos da Visa Cash App Racing Bulls em 4 Sessões pendentes."
   }
 ]
 ```
 
-Aqui o Motivo fica no texto genérico porque o Gabriel, piloto atual da Visa Cash App Racing Bulls, disputou 14 das 17 Corridas: sem 100% de presença de todos os pilotos da líder, o argumento do pior resultado não entra.
+Aqui o Motivo fica no texto genérico porque o Gabriel, piloto atual da Visa Cash App Racing Bulls, disputou 14 das 18 Corridas: sem 100% de presença de todos os pilotos da líder, o argumento do pior resultado não entra.
 
 ## Estrutura do Projeto
 
