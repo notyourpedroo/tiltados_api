@@ -6,3 +6,5 @@ season_year,driver_id,race_id,deduction_points,penalty_reason
 2026,5,23,2,Causou uma colisão
 2026,2,23,1,Atraso no procedimento de início da sessão
 2026,3,23,2,Atraso no procedimento de início da sessão
+2026,3,24,3,Causou uma colisão
+2026,8,24,1,Direção perigosa

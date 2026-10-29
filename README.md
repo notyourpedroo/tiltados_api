@@ -393,10 +393,10 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP da C
     "team_id": 6,
     "team_name": "Mercedes-AMG Petronas",
     "initial_points": 12,
-    "deducted_points": 3,
-    "remaining_points": 9,
-    "punishments_count": 1,
-    "status": "Regular"
+    "deducted_points": 4,
+    "remaining_points": 8,
+    "punishments_count": 2,
+    "status": "Atencao"
   }
 ]
 ```
