@@ -21,6 +21,7 @@ concurrency:
 # correções da versão sem precisar de troca no workflow. As de terceiros ficam
 # fixadas pelo SHA do commit, com a versão no comentário, porque a tag de uma
 # action de terceiros pode ser reapontada para outro código; o SHA não.
+# tests/test_workflows.py confere a regra em todo workflow.
 jobs:
   build:
     name: Testar e empacotar
