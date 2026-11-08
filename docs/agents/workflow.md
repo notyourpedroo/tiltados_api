@@ -18,12 +18,13 @@ Toda mudança chega à `main` por **issue → branch → PR → revisão → mer
    A mensagem vai num arquivo novo com o número da issue no nome (ex.: `commit-msg-38a.txt`, no scratchpad) e entra com `git commit -F <arquivo>`: o scratchpad é compartilhado entre tarefas, e mensagem inline quebra nas aspas do shell.
 4. **Verificação local:** `ruff check .` e `pytest`, os dois passos do CI, verdes.
    O worktree de subagente não tem venv: rode a partir dele com o venv do checkout principal, `E:\Dev\Code\tiltados_api\.venv\Scripts\ruff check .` e `E:\Dev\Code\tiltados_api\.venv\Scripts\python -m pytest -q`.
+   Scripts Python ad hoc (conferir dados, imprimir respostas) rodam com `python -X utf8`, para que os acentos dos nomes (`José`) saiam certos no console do Windows.
 5. **PR:** `git push -u origin <branch>` e `gh pr create --base main --body-file <arquivo>`, com o título no padrão dos commits e, no corpo, resumo, evidência antes/depois, risco do merge e `Closes #<issue>`. Corpos e comentários no GitHub vão sempre por `--body-file` e em português com acentos; o "sem acentos" vale só para as mensagens de commit.
 6. **Entrega:** devolva a URL do PR.
 
 ## Revisão (sessão principal)
 
-Confira os quatro itens e registre o resultado num comentário no PR (`gh pr comment <pr> --body-file <arquivo>`), um item por linha, com ✅ ou o achado:
+Esta é a revisão do repositório: ela substitui o passo `code-review` dos skills (como o `implement-spec`). Confira os quatro itens e registre o resultado num comentário no PR (`gh pr comment <pr> --body-file <arquivo>`), um item por linha, com ✅ ou o achado:
 
 - **CI:** `gh pr checks <pr> --required` com `Testar e empacotar` em `pass`.
 - **Spec:** cada critério de aceite da issue atendido, e o diff (`gh pr diff <pr>`) dentro do escopo dela.
@@ -42,3 +43,5 @@ O merge publica em produção, e a sessão principal o conduz até o fim sem ped
 ## Spec com tickets
 
 Cada ticket (sub-issue da spec) é uma issue comum deste fluxo: um branch e um PR por ticket, a partir do `origin/main`, sem branch de integração nem PR da spec. Os PRs fecham os tickets; a spec mãe fecha à mão (`gh issue close <spec> --comment ...`) depois do merge do último ticket e do `Publicar no servidor` verde, com um comentário que liga os PRs e o deploy.
+
+Antes de marcar a spec e os tickets como `ready-for-agent`, quem os escreve confere cada número derivado (contagem, soma, total) contra a tabela ou o dado de onde ele vem: na spec #40, "225 linhas" contradizia a própria tabela, que somava 215.
