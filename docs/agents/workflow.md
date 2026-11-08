@@ -34,7 +34,3 @@ Confira os quatro itens e registre o resultado num comentário no PR (`gh pr com
 - **Branch desatualizado** (outro PR entrou antes): `gh pr update-branch <pr> --rebase`, esperar o CI de novo e só então mergear. Sem `--rebase`, o GitHub põe um merge commit no branch, e ele iria para a `main`.
 - **Item falhou:** um comentário no PR por achado, e o PR volta ao implementador, que corrige no mesmo branch.
 - **Dúvida que só o usuário resolve:** o PR espera, e a sessão pergunta ao usuário.
-
-## PRs do Dependabot
-
-O merge de um PR do Dependabot põe o `dependabot[bot]` como autor do commit e na lista de Contributors. As versões que ele propõe entram por um PR próprio (`chore(deps): atualiza <pacote> de X para Y`), depois de conferido o CI do PR dele; o Dependabot fecha o PR dele sozinho quando vê a versão nova na `main`.
