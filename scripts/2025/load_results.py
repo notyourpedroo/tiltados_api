@@ -29,7 +29,7 @@ def load_results(base_path="./files/2025"):
     - driver_start_position: Posição de partida do piloto na grid
     - driver_final_position: Posição final do piloto no resultado
     - grid_result: Resultado da classificação de grid (-1 para DNF, 0-2 para podiums)
-    - driver_fastest_lap: Tempo da volta mais rápida (formato MM:SS.mmm ou '9:99.999' se DNF)
+    - driver_fastest_lap: Tempo da volta mais rápida (MM:SS.mmm), ou '9:99.999' quando o piloto não tem volta registrada (abandono)
 
     Args:
         base_path (str): Caminho para a diretória dos dados de 2025.
