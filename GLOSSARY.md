@@ -38,6 +38,10 @@ Uma Sessão do Calendário que já tem resultado registrado.
 Uma Sessão do Calendário ainda sem resultado registrado, mesmo que a data já tenha passado.
 _Avoid_: sessão futura
 
+**Participação**:
+Uma Sessão disputada em que o piloto tem resultado. Quem não aparece no resultado de uma Sessão não tem Participação nela. Um abandono conta como Participação.
+_Avoid_: presença, corrida (para contar Sessões)
+
 ## Campeonato
 
 **Campeão**:
