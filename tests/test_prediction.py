@@ -60,10 +60,10 @@ def test_pilotos_trazem_situacao_e_chance_de_titulo(client):
     rows = by_name(response.json())
 
     assert all(set(row) == DRIVER_FIELDS for row in rows.values())
-    # Após o GP de São Paulo: Matheus 428 + 18 = 446 x Yohan 332 + 25 = 357, com 3 Corridas (75 pts) em jogo
-    assert rows["Matheus"]["points"] == 446
-    assert rows["Matheus"]["max_points"] == 521
-    assert rows["Yohan"]["max_points"] == 432
+    # Após o GP de Las Vegas: Matheus 446 + 15 = 461 x Yohan 357 + 18 = 375, com 2 Corridas (50 pts) em jogo
+    assert rows["Matheus"]["points"] == 461
+    assert rows["Matheus"]["max_points"] == 511
+    assert rows["Yohan"]["max_points"] == 425
     assert rows["Matheus"]["status"] == "Campeao"
     assert rows["Matheus"]["championship_probability"] == 100
     for name, row in rows.items():
@@ -73,23 +73,23 @@ def test_pilotos_trazem_situacao_e_chance_de_titulo(client):
 
 
 def test_motivo_do_piloto_eliminado(client):
-    # Douglas 238 + 12 = 250, que com 3 x 25 chega a 325, abaixo dos 446 do líder Matheus
+    # Douglas 250 (não correu em Las Vegas), que com 2 x 25 chega a 300, abaixo dos 461 do líder Matheus
     rows = by_name(client.get(DRIVERS).json())
 
     assert rows["Douglas"]["probability_reason"] == (
-        "Mesmo vencendo as 3 Sessões pendentes, chega a no máximo 325 pontos, abaixo dos 446 de Matheus."
+        "Mesmo vencendo as 2 Sessões pendentes, chega a no máximo 300 pontos, abaixo dos 461 de Matheus."
     )
 
 
-def test_motivo_do_campeao_antecipado_apos_o_gp_de_sao_paulo(client):
-    # Yohan 357 + 3 x 25 = 432, abaixo dos 446 de Matheus
+def test_motivo_do_campeao_antecipado_apos_o_gp_de_las_vegas(client):
+    # Yohan 375 + 2 x 25 = 425, abaixo dos 461 de Matheus
     rows = by_name(client.get(DRIVERS).json())
 
     assert rows["Matheus"]["probability_reason"] == (
-        "Nenhum rival alcança mais os seus 446 pontos: o mais próximo, Yohan, chega a no máximo 432."
+        "Nenhum rival alcança mais os seus 461 pontos: o mais próximo, Yohan, chega a no máximo 425."
     )
     assert rows["Yohan"]["probability_reason"] == (
-        "Mesmo vencendo as 3 Sessões pendentes, chega a no máximo 432 pontos, abaixo dos 446 de Matheus."
+        "Mesmo vencendo as 2 Sessões pendentes, chega a no máximo 425 pontos, abaixo dos 461 de Matheus."
     )
 
 
@@ -152,7 +152,7 @@ def test_chances_de_titulo_somam_100(client, data_dir):
 
 def test_sem_sessoes_pendentes_o_lider_e_campeao(client, data_dir):
     played = [row for row in calendar_rows(data_dir) if row[0] not in
-              ("las_vegas", "catar", "abu_dhabi")]
+              ("catar", "abu_dhabi")]
     write_calendar(data_dir, played)
     rows = by_name(client.get(DRIVERS).json())
 
@@ -162,10 +162,10 @@ def test_sem_sessoes_pendentes_o_lider_e_campeao(client, data_dir):
         assert row["max_points"] == row["points"] == row["expected_points"]
         if row["driver_name"] != "Matheus":
             assert row["status"] == "Eliminado"
-    # Matheus 446, Yohan 357, Douglas 250
-    assert rows["Matheus"]["probability_reason"] == "Terminou a temporada em 1º, com 446 pontos."
-    assert rows["Yohan"]["probability_reason"] == "Terminou em 2º, 89 pontos atrás de Matheus."
-    assert rows["Douglas"]["probability_reason"] == "Terminou em 3º, 196 pontos atrás de Matheus."
+    # Matheus 461, Yohan 375, Douglas 250
+    assert rows["Matheus"]["probability_reason"] == "Terminou a temporada em 1º, com 461 pontos."
+    assert rows["Yohan"]["probability_reason"] == "Terminou em 2º, 86 pontos atrás de Matheus."
+    assert rows["Douglas"]["probability_reason"] == "Terminou em 3º, 211 pontos atrás de Matheus."
 
 
 def test_motivo_de_posicao_final_decidida_no_desempate_por_vitorias(client, data_dir):
@@ -422,7 +422,7 @@ def test_mesmos_dados_dao_a_mesma_resposta(client, data_dir):
 
 def test_resultado_novo_atualiza_a_chance_de_titulo(client, data_dir):
     before = by_name(client.get(DRIVERS).json())
-    write_session(data_dir, "las_vegas_race_20261121.csv", [
+    write_session(data_dir, "catar_race_20261129.csv", [
         (1, "Yohan", "Red Bull", 1),
         (2, "Erick", "Red Bull", 2),
         (7, "Matheus", "Visa Cash App Racing Bulls", 7),
@@ -446,14 +446,15 @@ def test_equipes_trazem_situacao_e_chance_de_titulo(client):
     rows = by_name(response.json(), key="team_name")
 
     assert all(set(row) == TEAM_FIELDS for row in rows.values())
-    # Racing Bulls 613 + 18 + 10 = 641 x Red Bull 494 + 25 = 519, com 3 x (25 + 18) = 129 pts em jogo
-    assert rows["Visa Cash App Racing Bulls"]["max_points"] == 641 + 129
-    assert rows["Red Bull"]["max_points"] == 519 + 129
-    assert {name for name, row in rows.items() if row["status"] == "Na disputa"} == {
-        "Visa Cash App Racing Bulls", "Red Bull"}
-    for name in ("Scuderia Ferrari HP", "Mercedes-AMG Petronas"):
-        assert rows[name]["status"] == "Eliminado"
-        assert rows[name]["championship_probability"] == 0
+    # Racing Bulls 641 + 15 + 10 = 666 x Red Bull 519 + 18 = 537, com 2 x (25 + 18) = 86 pts em jogo
+    assert rows["Visa Cash App Racing Bulls"]["max_points"] == 666 + 86
+    assert rows["Red Bull"]["max_points"] == 537 + 86
+    assert rows["Visa Cash App Racing Bulls"]["status"] == "Campeao"
+    assert rows["Visa Cash App Racing Bulls"]["championship_probability"] == 100
+    for name, row in rows.items():
+        if name != "Visa Cash App Racing Bulls":
+            assert row["status"] == "Eliminado"
+            assert row["championship_probability"] == 0
     assert abs(sum(row["championship_probability"] for row in rows.values()) - 100) <= 0.2
 
 
@@ -600,7 +601,7 @@ def test_pontos_simulados_vao_para_a_equipe_atual_do_piloto(client, data_dir):
 
 def test_construtores_sem_sessoes_pendentes(client, data_dir):
     played = [row for row in calendar_rows(data_dir) if row[0] not in
-              ("las_vegas", "catar", "abu_dhabi")]
+              ("catar", "abu_dhabi")]
     write_calendar(data_dir, played)
     rows = client.get(TEAMS).json()
 
@@ -608,10 +609,10 @@ def test_construtores_sem_sessoes_pendentes(client, data_dir):
     assert rows[0]["status"] == "Campeao" and rows[0]["championship_probability"] == 100
     assert all(row["status"] == "Eliminado" for row in rows[1:])
     assert all(row["max_points"] == row["points"] == row["expected_points"] for row in rows)
-    # Racing Bulls 641 x Red Bull 519
-    assert rows[0]["probability_reason"] == "Terminou a temporada em 1º, com 641 pontos."
+    # Racing Bulls 666 x Red Bull 537
+    assert rows[0]["probability_reason"] == "Terminou a temporada em 1º, com 666 pontos."
     assert rows[1]["team_name"] == "Red Bull"
-    assert rows[1]["probability_reason"] == "Terminou em 2º, 122 pontos atrás da Visa Cash App Racing Bulls."
+    assert rows[1]["probability_reason"] == "Terminou em 2º, 129 pontos atrás da Visa Cash App Racing Bulls."
 
 
 def test_construtores_mesmos_dados_dao_a_mesma_resposta(client, data_dir):

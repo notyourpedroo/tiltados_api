@@ -275,7 +275,7 @@ Superlicença, punições e Chance de título (as quatro últimas rotas da tabel
 
 ## Exemplos de Uso e Respostas
 
-Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de São Paulo).
+Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de Las Vegas).
 
 ### 1. Informações da API
 `GET /`
@@ -283,7 +283,7 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
 ```json
 {
   "name": "Tiltados API",
-  "version": "v2.26.1110",
+  "version": "v2.26.1123",
   "seasons": [
     2025,
     2026
@@ -326,11 +326,11 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
     "driver_name": "Matheus",
     "team_id": 7,
     "team_name": "Visa Cash App Racing Bulls",
-    "points": 446,
+    "points": 461,
     "wins": 11,
     "sprint_wins": 2,
-    "podiums": 23,
-    "races": 25
+    "podiums": 24,
+    "races": 26
   },
   {
     "position": 2,
@@ -338,11 +338,11 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
     "driver_name": "Yohan",
     "team_id": 1,
     "team_name": "Red Bull",
-    "points": 357,
+    "points": 375,
     "wins": 6,
     "sprint_wins": 3,
-    "podiums": 18,
-    "races": 25
+    "podiums": 19,
+    "races": 26
   }
 ]
 ```
@@ -356,17 +356,17 @@ Os valores abaixo são do estado atual dos dados (temporada 2026, até o GP de S
     "position": 1,
     "team_id": 7,
     "team_name": "Visa Cash App Racing Bulls",
-    "points": 641,
+    "points": 666,
     "wins": 11,
-    "podiums": 28
+    "podiums": 29
   },
   {
     "position": 2,
     "team_id": 1,
     "team_name": "Red Bull",
-    "points": 519,
+    "points": 537,
     "wins": 6,
-    "podiums": 20
+    "podiums": 21
   }
 ]
 ```
@@ -458,7 +458,7 @@ Cada punição precisa apontar para um `driver_id` com Sessão disputada na temp
 ### 7. Chance de Título dos Pilotos (2026)
 `GET /load/2026/prediction/drivers`
 
-Valores após o GP de São Paulo, com 3 Corridas pendentes (os 3 primeiros da lista):
+Valores após o GP de Las Vegas, com 2 Corridas pendentes (os 3 primeiros da lista):
 
 ```json
 [
@@ -468,12 +468,12 @@ Valores após o GP de São Paulo, com 3 Corridas pendentes (os 3 primeiros da li
     "driver_name": "Matheus",
     "team_id": 7,
     "team_name": "Visa Cash App Racing Bulls",
-    "points": 446,
-    "max_points": 521,
+    "points": 461,
+    "max_points": 511,
     "status": "Campeao",
     "championship_probability": 100.0,
-    "expected_points": 510.0,
-    "probability_reason": "Nenhum rival alcança mais os seus 446 pontos: o mais próximo, Yohan, chega a no máximo 432."
+    "expected_points": 503.0,
+    "probability_reason": "Nenhum rival alcança mais os seus 461 pontos: o mais próximo, Yohan, chega a no máximo 425."
   },
   {
     "position": 2,
@@ -481,12 +481,12 @@ Valores após o GP de São Paulo, com 3 Corridas pendentes (os 3 primeiros da li
     "driver_name": "Yohan",
     "team_id": 1,
     "team_name": "Red Bull",
-    "points": 357,
-    "max_points": 432,
+    "points": 375,
+    "max_points": 425,
     "status": "Eliminado",
     "championship_probability": 0.0,
-    "expected_points": 407.0,
-    "probability_reason": "Mesmo vencendo as 3 Sessões pendentes, chega a no máximo 432 pontos, abaixo dos 446 de Matheus."
+    "expected_points": 408.6,
+    "probability_reason": "Mesmo vencendo as 2 Sessões pendentes, chega a no máximo 425 pontos, abaixo dos 461 de Matheus."
   },
   {
     "position": 3,
@@ -495,21 +495,21 @@ Valores após o GP de São Paulo, com 3 Corridas pendentes (os 3 primeiros da li
     "team_id": 6,
     "team_name": "Mercedes-AMG Petronas",
     "points": 250,
-    "max_points": 325,
+    "max_points": 300,
     "status": "Eliminado",
     "championship_probability": 0.0,
-    "expected_points": 284.8,
-    "probability_reason": "Mesmo vencendo as 3 Sessões pendentes, chega a no máximo 325 pontos, abaixo dos 446 de Matheus."
+    "expected_points": 272.0,
+    "probability_reason": "Mesmo vencendo as 2 Sessões pendentes, chega a no máximo 300 pontos, abaixo dos 461 de Matheus."
   }
 ]
 ```
 
-Com o GP de São Paulo, Matheus é `Campeao` pela matemática: nem vencendo as 3 Corridas pendentes Yohan passa dos 446 pontos dele.
+Matheus é `Campeao` pela matemática desde o GP de São Paulo: nem vencendo as 2 Corridas pendentes Yohan passa dos 461 pontos dele.
 
 ### 8. Chance de Título dos Construtores (2026)
 `GET /load/2026/prediction/teams`
 
-Valores após o GP de São Paulo (os 2 primeiros da lista):
+Valores após o GP de Las Vegas (os 2 primeiros da lista):
 
 ```json
 [
@@ -517,28 +517,28 @@ Valores após o GP de São Paulo (os 2 primeiros da lista):
     "position": 1,
     "team_id": 7,
     "team_name": "Visa Cash App Racing Bulls",
-    "points": 641,
-    "max_points": 770,
-    "status": "Na disputa",
+    "points": 666,
+    "max_points": 752,
+    "status": "Campeao",
     "championship_probability": 100.0,
-    "expected_points": 731.1,
-    "probability_reason": "Ainda não é Campeã de Construtores pela matemática, mas é campeã em quase todas as 10.000 simulações: a Red Bull precisaria tirar 122 pontos em 3 Sessões pendentes."
+    "expected_points": 725.5,
+    "probability_reason": "Nenhuma equipe alcança mais os seus 666 pontos: a mais próxima, Red Bull, chega a no máximo 623."
   },
   {
     "position": 2,
     "team_id": 1,
     "team_name": "Red Bull",
-    "points": 519,
-    "max_points": 648,
-    "status": "Na disputa",
+    "points": 537,
+    "max_points": 623,
+    "status": "Eliminado",
     "championship_probability": 0.0,
-    "expected_points": 590.4,
-    "probability_reason": "Ainda está na disputa pela matemática, mas quase nunca é campeã nas 10.000 simulações: precisaria tirar 122 pontos da Visa Cash App Racing Bulls em 3 Sessões pendentes."
+    "expected_points": 584.2,
+    "probability_reason": "Mesmo fazendo 1º e 2º nas 2 Sessões pendentes, chega a no máximo 623 pontos, abaixo dos 666 da Visa Cash App Racing Bulls."
   }
 ]
 ```
 
-Aqui o Motivo fica no texto genérico porque o Gabriel, piloto atual da Visa Cash App Racing Bulls, disputou 15 das 19 Corridas: sem 100% de presença de todos os pilotos da líder, o argumento do pior resultado não entra.
+Com o GP de Las Vegas, a Visa Cash App Racing Bulls é `Campeao` de Construtores pela matemática: nem com 1º e 2º nas 2 Corridas pendentes a Red Bull passa dos 666 pontos dela.
 
 ## Estrutura do Projeto
 
