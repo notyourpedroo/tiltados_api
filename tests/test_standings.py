@@ -1,6 +1,6 @@
 """Desempate da classificação de pilotos e de construtores (temporadas por Sessão)."""
 
-from conftest import reset_2026_season, write_session
+from conftest import replace_in_file, reset_2026_season, write_session
 
 DRIVERS = "/load/2026/standings/drivers"
 TEAMS = "/load/2026/standings/teams"
@@ -202,6 +202,35 @@ def test_equipe_que_conseguiu_primeiro_o_melhor_resultado_com_qualquer_piloto_fi
 
     assert order(client, TEAMS, "team_name") == [
         (ALPINE, 50), (SAUBER, 30), (MCLAREN, 30), (FERRARI, 30),
+    ]
+
+
+def test_piloto_nc_pontua_pela_posicao_do_resultado_e_a_coluna_pts_e_ignorada(client, data_dir):
+    # Corrida: 1º 25, 2º 18, 3º 15, 4º 12, 5º 10 (scores.csv de 2026).
+    # Gabriel é 5º e NC, sem volta completada e com Pts. 0: leva os 10 pontos do 5º.
+    # Matheus tem Pts. 99 no export e leva só os 25 do 1º.
+    reset_2026_season(data_dir)
+    write_session(data_dir, "australia_race_20260302.csv", [
+        (1, "Matheus", ALPINE, 1),
+        (2, "Mike", SAUBER, 2),
+        (3, "Yohan", MCLAREN, 3),
+        (4, "Douglas", SAUBER, 4),
+        (5, "Gabriel", FERRARI, 5),
+    ])
+    session = data_dir / "2026" / "australia_race_20260302.csv"
+    replace_in_file(
+        session,
+        f"5,Gabriel,{FERRARI},5,2,1:30.000,40:00.000,0,Pessoa",
+        f"5,Gabriel,{FERRARI},5,0,--:--.---,NC,0,Pessoa",
+    )
+    replace_in_file(
+        session,
+        f"1,Matheus,{ALPINE},1,2,1:30.000,40:00.000,0,Pessoa",
+        f"1,Matheus,{ALPINE},1,2,1:30.000,40:00.000,99,Pessoa",
+    )
+
+    assert order(client, DRIVERS, "driver_name") == [
+        ("Matheus", 25), ("Mike", 18), ("Yohan", 15), ("Douglas", 12), ("Gabriel", 10),
     ]
 
 
