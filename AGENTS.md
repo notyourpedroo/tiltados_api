@@ -2,6 +2,8 @@
 
 Toda mudança chega à `main` protegida por issue → branch → PR → revisão → merge, e o merge publica em produção. Ao pegar uma issue, abrir um PR ou revisar e mergear um PR, siga `docs/agents/workflow.md`.
 
+Chegou um CSV de resultado novo em `files/{ano}/`: antes da issue, siga `docs/agents/nova-corrida.md`.
+
 ## Agent skills
 
 ### Issue tracker
