@@ -108,6 +108,12 @@ Os testes rodam sobre uma cópia de `files/` em uma pasta temporária, então po
 
 Toda rota da API entra sozinha nos testes de resposta. Uma rota nova também precisa aparecer na tabela de "Endpoints Disponíveis" e na lista `HEALTH_URLS` de `deploy/publicar.sh`, senão os testes falham. Nos testes e no `HEALTH_URLS`, `{season}` vira cada temporada; as rotas que só existem nas temporadas por Sessão (Superlicença, punições e Chance de título, listadas em `SESSION_ONLY_ROUTES` de `tests/test_endpoints.py`) entram só com as temporadas por Sessão, porque em 2025 respondem `404`.
 
+Os exemplos com valores reais de "Exemplos de Uso e Respostas" (Classificação e Chance de título de 2026, de pilotos e de construtores) também são conferidos: o teste acha cada bloco JSON pela linha `GET` da rota e falha se ele diferir dos primeiros itens da resposta. Depois de adicionar uma Corrida, atualize os blocos com a resposta atual da API (o script mantém quantos itens cada bloco mostra e não mexe no resto do README; o texto em volta, como "Valores após o GP de...", continua à mão):
+
+```bash
+python -X utf8 -m scripts.readme_examples
+```
+
 Um dos testes exige que toda Sessão de `files/2026/` (nos nomes dos arquivos e no Calendário) esteja no Cadastro de Sessões (`files/sessions.csv`). Ao adicionar um GP novo, ou uma Sprint num GP que não tinha, cadastre a Sessão antes.
 
 ## Atualização Automática dos Dados
@@ -561,7 +567,8 @@ tiltados_api/
 |   |-- sessions/           # Módulos das temporadas por Sessão (2026 em diante)
 |   |   |-- common.py       # Padrão de nome e leitura dos CSVs de sessão
 |   |   `-- load_registry.py # Leitura e validação do Cadastro (pilotos, equipes e Sessões)
-|   `-- errors.py           # DataError e validação dos CSVs (arquivo, coluna, valor)
+|   |-- errors.py           # DataError e validação dos CSVs (arquivo, coluna, valor)
+|   `-- readme_examples.py  # Reescreve os exemplos de resposta do README com a resposta atual da API
 |-- tests/                  # Testes automatizados (pytest)
 |-- main.py                 # Aplicação FastAPI, cache e definição de rotas
 |-- pytest.ini              # Configuração do pytest
