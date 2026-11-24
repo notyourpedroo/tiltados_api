@@ -222,6 +222,7 @@ Superlicença, punições e Chance de título (as quatro últimas rotas da tabel
 
 **Classificação (pilotos e construtores)**
 - Pontos vêm de `scores.csv`, cruzando a posição final com o tipo da sessão (corrida ou sprint).
+- O piloto NC (`NC` na coluna `Tempo` do export) pontua pela posição em que aparece no resultado, mesmo sem volta completada: no GP de Las Vegas de 2026, o Gabriel, 5º e NC, levou 10 pontos. A coluna `Pts.` do export é ignorada.
 - Desempate (2026): pontos; vitórias em Corridas; pódios (Corridas e Sprints); mais 2ºs lugares em Corridas, depois mais 3ºs, e assim por diante; quem conseguiu primeiro (na Sessão mais antiga) o seu melhor resultado em Corridas; e, se ainda empatar (por exemplo, nenhum dos dois disputou Corridas), a ordem do ID. Nos construtores, a contagem soma as posições dos pilotos da equipe em cada Corrida, e o melhor resultado é o de qualquer piloto da equipe.
 - Desempate (2025): pontos, depois vitórias em Corridas, depois pódios, e então a ordem do ID. A classificação de 2025 fica como foi publicada.
 - `races` conta as Participações do piloto, ou seja, as Corridas e Sprints em que ele tem resultado (um abandono conta). `wins` conta apenas corridas (GP); `sprint_wins` conta apenas sprints.

@@ -42,6 +42,10 @@ _Avoid_: sessão futura
 Uma Sessão disputada em que o piloto tem resultado. Quem não aparece no resultado de uma Sessão não tem Participação nela. Um abandono conta como Participação.
 _Avoid_: presença, corrida (para contar Sessões)
 
+**NC**:
+Não classificado: o piloto com `NC` na coluna `Tempo` do resultado de uma Sessão, por abandono ou dano, com ou sem volta completada. É uma Participação e pontua pela posição em que aparece no resultado, como qualquer outro piloto; a coluna `Pts.` do export, que mostra 0 para ele, é ignorada.
+_Avoid_: DNF, desclassificado
+
 ## Campeonato
 
 **Campeão**:
