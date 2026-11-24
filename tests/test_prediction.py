@@ -5,12 +5,15 @@ import re
 
 from conftest import reset_2026_season, write_calendar, write_session
 
+from scripts.sessions.common import list_sessions
+
 DRIVERS = "/load/2026/prediction/drivers"
 TEAMS = "/load/2026/prediction/teams"
 TEAM = "Red Bull"
-# Locais do Cadastro de Sessões usados nas temporadas sintéticas
+# Locais do Cadastro de Sessões usados nas temporadas sintéticas, que começam sem nenhum resultado:
+# não importa se a Sessão já foi disputada nos dados reais (as pendentes reais saem de `pending_sessions`)
 PLAYED = ["australia", "china", "japao", "bahrein", "arabia_saudita", "miami"]
-PENDING = ["mexico", "brasil", "las_vegas", "catar", "abu_dhabi"]
+SYNTHETIC_PENDING = ["mexico", "brasil", "las_vegas", "catar", "abu_dhabi"]
 # Equipes de 2025, com IDs fixos: Ferrari (2) < McLaren (4)
 FERRARI = "Scuderia Ferrari HP"
 MCLAREN = "McLaren F1 Team"
@@ -29,6 +32,18 @@ def by_name(rows, key="driver_name"):
 def calendar_rows(data_dir):
     with open(data_dir / "2026" / "calendar.csv", encoding="utf-8") as f:
         return [(r["local"], r["tipo"], r["data"]) for r in csv.DictReader(f)]
+
+
+def pending_sessions(data_dir):
+    """Sessões (local, tipo, data) do Calendário de 2026 da cópia que ainda não têm arquivo de resultado."""
+    played = {(s["local"], "sprint" if s["is_sprint"] else "race") for s in list_sessions(str(data_dir / "2026"))}
+    return [row for row in calendar_rows(data_dir) if row[:2] not in played]
+
+
+def played_sessions(data_dir):
+    """Sessões do Calendário de 2026 da cópia que já têm arquivo de resultado."""
+    pending = pending_sessions(data_dir)
+    return [row for row in calendar_rows(data_dir) if row not in pending]
 
 
 def season(data_dir, races, pending, teams=None):
@@ -51,7 +66,7 @@ def season(data_dir, races, pending, teams=None):
                       [(pos, driver, team_of(driver, i - 1), pos)
                        for pos, driver in enumerate(finishing_order, start=1) if driver])
         played.append((local, "race", f"2026-03-0{i}"))
-    write_calendar(data_dir, played + [(PENDING[i], "race", f"2026-12-0{i + 1}") for i in range(pending)])
+    write_calendar(data_dir, played + [(SYNTHETIC_PENDING[i], "race", f"2026-12-0{i + 1}") for i in range(pending)])
 
 
 def test_pilotos_trazem_situacao_e_chance_de_titulo(client):
@@ -151,9 +166,7 @@ def test_chances_de_titulo_somam_100(client, data_dir):
 
 
 def test_sem_sessoes_pendentes_o_lider_e_campeao(client, data_dir):
-    played = [row for row in calendar_rows(data_dir) if row[0] not in
-              ("catar", "abu_dhabi")]
-    write_calendar(data_dir, played)
+    write_calendar(data_dir, played_sessions(data_dir))
     rows = by_name(client.get(DRIVERS).json())
 
     assert rows["Matheus"]["status"] == "Campeao"
@@ -422,7 +435,8 @@ def test_mesmos_dados_dao_a_mesma_resposta(client, data_dir):
 
 def test_resultado_novo_atualiza_a_chance_de_titulo(client, data_dir):
     before = by_name(client.get(DRIVERS).json())
-    write_session(data_dir, "catar_race_20261129.csv", [
+    local, session_type, date = pending_sessions(data_dir)[0]
+    write_session(data_dir, f"{local}_{session_type}_{date.replace('-', '')}.csv", [
         (1, "Yohan", "Red Bull", 1),
         (2, "Erick", "Red Bull", 2),
         (7, "Matheus", "Visa Cash App Racing Bulls", 7),
@@ -600,9 +614,7 @@ def test_pontos_simulados_vao_para_a_equipe_atual_do_piloto(client, data_dir):
 
 
 def test_construtores_sem_sessoes_pendentes(client, data_dir):
-    played = [row for row in calendar_rows(data_dir) if row[0] not in
-              ("catar", "abu_dhabi")]
-    write_calendar(data_dir, played)
+    write_calendar(data_dir, played_sessions(data_dir))
     rows = client.get(TEAMS).json()
 
     assert rows[0]["team_name"] == "Visa Cash App Racing Bulls"
